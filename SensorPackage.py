@@ -250,6 +250,8 @@ while True:
         test_time=time.time()
         try:
             master.mav.command_long_send(master.target_system,master.target_component,mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE,0,33, 0, 0, 0, 0, 0, 0)
+            master.mav.command_long_send(master.target_system, master.target_component,
+                                         mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE, 0, 62, 0, 0, 0, 0, 0, 0)
             time.sleep(1)
             msg=master.recv_match().to_dict()
             print(msg['mavpackettype'])
