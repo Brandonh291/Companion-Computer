@@ -1,6 +1,5 @@
 #######################################################
 # Current Date of Version: 1/10/2022
-# Testing
 #######################################################
 #The service's name is sensorPackage.service
 
