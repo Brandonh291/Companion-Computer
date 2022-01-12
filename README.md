@@ -1,2 +1,2 @@
-# Companion-Computer
-Code to run onboard companion computer system.
+# Read-Me
+This is going to be my total repository to contain everything related to my masters.
