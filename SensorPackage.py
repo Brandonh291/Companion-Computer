@@ -6,6 +6,9 @@
 # To START use: "sudo systemctl enable sensorPackage.service"
 # To STOP  use: "sudo systemctl stop sensorPackage.service"
 #######################################################
+# To commit this back to the git page
+# git add SensorPackage.py
+# git commit -m "COMMENT"
 # Libraries
 import time
 from smbus2 import SMBus
