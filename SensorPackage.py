@@ -9,6 +9,9 @@
 # To commit this back to the git page
 # git add SensorPackage.py
 # git commit -m "COMMENT"
+#######################################################
+# How to update?
+#######################################################
 # Libraries
 import time
 from smbus2 import SMBus
