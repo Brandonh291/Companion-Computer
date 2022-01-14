@@ -12,6 +12,7 @@
 # git push origin main
 #######################################################
 # How to update?
+# git pull origin main
 #######################################################
 # Libraries
 import time
