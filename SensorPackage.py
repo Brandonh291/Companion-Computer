@@ -251,11 +251,6 @@ def initialize_mavlink_log():
     logged_data.append("Navio2_Ground_Y_Speed (GLOBAL_POSITION_INT, cm/s)")
     logged_data.append("Navio2_Ground_Z_Speed (GLOBAL_POSITION_INT, cm/s)")
     logged_data.append("Navio2_Heading (GLOBAL_POSITION_INT, cdeg)")
-# def read_mavlink_data(search):
-#     msg=master.recv_match().to_dict()
-#     if msg['mavpackettype'] == 'GLOBAL_POSITION_INT':
-#         print("Altitude: %s m " %(msg['relative_alt']/1000))
-#         altitude=msg['relative_alt']/1000
 
 #########################################
 # Adjustable Variables
@@ -263,12 +258,6 @@ test_mode = 0  # This is whether we ignore whether the system is armed or not an
 check_once = 0
 bad_data = 0
 #########################################
-
-# tempSense = Tmp117_Sensor()
-# distSense = VL53l1x_distance_sensor()
-# envSense = bme280_ccs811_sensor()
-# print(distSense.measure_distance())
-# print(tempSense.tempReading())
 
 heartBeatArmed=0
 initialize_items=0
