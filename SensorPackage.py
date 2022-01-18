@@ -127,23 +127,11 @@ class Tmp117_Sensor:
 
             # Read CONFIG to verify that we changed it
             val = bus.read_i2c_block_data(tmp117_addr, tmp117_reg_config, 2)
-            # print("New CONFIG:", hex(val[0]),hex(val[1]))
             # Print out temperature every second
             # Read temperature registers
             val = bus.read_i2c_block_data(tmp117_addr, tmp117_reg_temp, 2)
-            # NOTE: val[0] = MSB byte 1, val [1] = LSB byte 2
-            # print ("!shifted val[0] = ", bin(val[0]), "val[1] = ", bin(val[1]))
-            # print(val[0])
-            # print(val[1])
             temp_c = (val[0] << 8) | (val[1] >> 0)
-            # print (" shifted val[0] = ", bin(val[0] << 4), "val[1] = ", bin(val[1] >> 4))
-            # print (bin(temp_c))
-
-            # Convert to 2s complement (temperatures can be negative)
-            # print(bin(temp_c))
             temp_c = self.twos_comp(temp_c, 16)
-            # print(bin(temp_c))
-            # print((temp_c))
             # Convert registers value to temperature (C)
             temp_c = temp_c * 0.0078125
             bus.close()
@@ -236,7 +224,7 @@ while True:
 
     initialize_mavlink_log()
 
-    # print("Are we armmed? :" + str(master.motors_armed()))
+    # print("Are we armed? :" + str(master.motors_armed()))
     print("Data Being Logged: ")
     print(logged_data)
     print("\n")
