@@ -43,27 +43,81 @@ activeSensors = []  # Array of active sensors
 data=[]
 ########################################################
 # Threading Testing
-bus = SMBus(1)
-class bme280_ccs811_sensor:
+bus = SMBus(4)
+class CCS811:
     def __init__(self):
         #  # Keep an eye on this, I might need to do a general call for the Bus to the entire program
         global logged_data
-        # might need to delcare these sensors global
+        # try activating the CCS811 Sensor
+        try:
+            global eco2
+            global eTVOC
+            # Will need to wait 20 minutes for decent readings
+    
+            # Done at Startup, exit boot
+            bus.write_byte(0x5B,0xF4)
+    
+            #Set Mode
+            bus.write_byte(0x5B,0x01)
+            bus.write_i2c_block_data(0x5B,0x01,[0b00010000])
+    
+            # Go to Data
+            #Ignore first 3, they are calibrations
+            #bus.write_byte(0x5B,0x02)
+            eco2=0
+            while eco2==0:
+                bus.write_byte(0x5B,0x02)
+                val=bus.read_i2c_block_data(0x5b,0x02,4)
+                eco2=((val[0]<<8)|(val[1]))
+                eTVOC=((val[2]<<8)|(val[3]))
+                #print("eCO2: "+ str(eco2) + " ppm")
+                #print("eTVOC: "+ str(eTVOC) + "ppb")
+                time.sleep(1)
+            logged_data.append("CCS811 CO2 (ppm)")
+            logged_data.append("CCS811 tVOC (ppb)")
+            self._running = True
+            
+        except:
+            print("CCS811 not Detected")
+            self._running = False
+            return
+        
+    def read_gas(self):
+        global eco2
+        global eTVOC
+        if self._running:
+            global data
+            # Go to Data
+            #Ignore first 3, they are calibrations
+            bus.write_byte(0x5B,0x02)
+            val=bus.read_i2c_block_data(0x5b,0x02,4)
+            eco2=((val[0]<<8)|(val[1]))
+            eTVOC=((val[2]<<8)|(val[3]))
+            data.append(eco2)
+            data.append(eTVOC)
+            #print("eCO2: "+ str(eco2) + " ppm")
+            #print("eTVOC: "+ str(eTVOC) + "ppb")
+
+
+
+class bme280_ccs811_sensor:
+    def __init__(self):
+        #  # Keep an eye on this, I might need to do a general call for the Bus to the entire program
+        global logged_data 
+        # Acivate BME280 I2C
         try:
             global bme280
-            global ccs811Sense
-            ccs811Sense = qwiic_ccs811.QwiicCcs811()
+            #global ccs811Sense
+            #ccs811Sense = qwiic_ccs811.QwiicCcs811()
             bme280 = BME280(i2c_dev=bus,i2c_addr=0x77)
-            ccs811Sense.begin()
+            #ccs811Sense.begin()
             logged_data.append("BME280 Temperature (C)")
             logged_data.append("BME280 Pressure (hPa)")
             logged_data.append("BME280 Humidity (%)")
             logged_data.append("BME280 Altitude (ft)")
-            logged_data.append("CCS811 CO2 (ppm)")
-            logged_data.append("CCS811 tVOC (ppb)")
             self._running = True
         except:
-            print("BME280 and CCS811 Sensor not Detected")
+            print("BME280 not Detected")
             self._running = False
             return
         
@@ -81,13 +135,8 @@ class bme280_ccs811_sensor:
                 data.append(humidity)
                 altitude=bme280.get_altitude()
                 data.append(altitude)
-                ccs811Sense.set_environmental_data(humidity, temperature)
-                if ccs811Sense.data_available():
-                    ccs811Sense.read_algorithm_results()
-                    data.append(ccs811Sense.CO2)
-                    data.append(ccs811Sense.TVOC)
-                else:
-                    append_Blanks(2)
+                print("Altitude: ",altitude)
+                print('{:05.2f}*C {:05.2f}hPa {:05.2f}%'.format(temperature, pressure, humidity))
         except:
             if self._running:
                 print("Connection to Environmental Sensor Lost")
@@ -124,6 +173,7 @@ class VL53l1x_distance_sensor:
                 distance = rangeSensor.get_distance()
                 time.sleep(0.005)
                 rangeSensor.stop_ranging()
+                print(distance)
                 data.append(distance)
                 return distance
         except:
@@ -254,7 +304,7 @@ def initialize_mavlink_log():
 
 #########################################
 # Adjustable Variables
-test_mode = 0  # This is whether we ignore whether the system is armed or not and performs the data logging
+test_mode = 1  # This is whether we ignore whether the system is armed or not and performs the data logging
 check_once = 0
 bad_data = 0
 #########################################
@@ -266,7 +316,7 @@ initialize_mavlink()
 while True:
 
     start_time = time.time()
-    while heartBeatArmed != 129:
+    while heartBeatArmed != 129 and test_mode==0:
         # Since we are disarmed, we are going to reset the active sensors and create a new log file name that is just going to be the current time
         # That way when we arm up again it will make a new file.
         log_file = datetime.now().strftime('%Y%m%d_%H%M%S') + ".txt"
@@ -288,6 +338,7 @@ while True:
         if initialize_items==0: 
             distanceInitialize = 0
             check_global_pos_int = 0
+            gas_sense=CCS811()
             tempSense = Tmp117_Sensor()
             distSense = VL53l1x_distance_sensor()
             envSense = bme280_ccs811_sensor()
@@ -301,6 +352,7 @@ while True:
         
         data = []
         data.append(round(time.time() - start_time, 3))
+        gas_sense.read_gas()
         # Get VL53L1X Data
         distance = distSense.measure_distance()
         # Get TMP117 Data
