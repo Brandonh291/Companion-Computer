@@ -1,6 +1,7 @@
 # Libraries
 import time
 #from threading import Thread
+#try sudo pip install vl53l1x
 from smbus2 import SMBus
 from enum import Enum
 import qwiic_vl53l1x
@@ -12,12 +13,14 @@ ccs811_addr=0x5B
 bme280_addr=0x77
 global eco2
 from bme280 import BME280
+import VL53L1X
 def read_distance():
-    bus=SMBus(4)
-    #send  send 0x40 to SYSTEM_MODE_START register  byte
-    # to stop send 0x00 to SYSTEM_MODE_START register 1 byte
-    system_mode_start=0x0087
-    #bus.write_byte(0x52,
+    tof=VL53L1X.VL53L1X(i2c_bus=4,i2c_address=0x29)
+    tof.open()
+    tof.start_ranging(1)
+    distance=tof.get_distance()
+    print(distance)
+    tof.stop_ranging()
     
 def read_humidity_press():
     for i in range(30):
@@ -78,7 +81,7 @@ def read_temp():
 
 #threadIt=Thread(target=print_gas)
 #threadIt.start()
-
+read_distance()
 read_gas()
 #hreadIt.terminate()
 read_humidity_press()
