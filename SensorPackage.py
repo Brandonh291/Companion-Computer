@@ -15,6 +15,7 @@
 # git pull origin main
 #######################################################
 # Libraries
+import VL53L1X
 from threading import Thread
 import pip
 import time
@@ -151,12 +152,12 @@ class VL53l1x_distance_sensor:
           # Keep an eye on this, I might need to do a general call for the Bus to the entire program
         global logged_data
         try:
-            global rangeSensor
+            global tof
             bus.read_byte_data(0x29, 0x00)
             print("Received a Response")
+            tof=VL53L1X.VL53L1X(i2c_bus=4,i2c_address=0x29)
+            tof.open()
             logged_data.append("VL53L1X Distance (mm)")
-            rangeSensor = qwiic_vl53l1x.QwiicVL53L1X()
-            rangeSensor.sensor_init()
             self._running = True
         except:
             print("VL53L1X Sensor not Detected")
@@ -168,12 +169,10 @@ class VL53l1x_distance_sensor:
         try:
             if self._running:
                 global data
-                rangeSensor.start_ranging()
-                time.sleep(0.005)
-                distance = rangeSensor.get_distance()
-                time.sleep(0.005)
-                rangeSensor.stop_ranging()
+                tof.start_ranging(1)
+                distance=tof.get_distance()
                 print(distance)
+                tof.stop_ranging()
                 data.append(distance)
                 return distance
         except:
