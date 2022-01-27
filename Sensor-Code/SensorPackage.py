@@ -15,8 +15,10 @@
 # git pull origin main
 #######################################################
 # Libraries
+import os
+from picamera import PiCamera
+import threading
 import VL53L1X
-from threading import Thread
 import pip
 import time
 from smbus2 import SMBus  # Install in terminal via: "sudo pip install smbus2"
@@ -27,7 +29,6 @@ from math import log10, floor
 from bme280 import BME280  # for BME280: "sudo pip install pimoroni-bme280"
 # for Github: "sudo apt-get install git"
 from pymavlink import mavutil  # Install in terminal via: "sudo python -m pip install --upgrade pymavlink"
-
 ########################################################
 # TMP117 Registers
 tmp117_addr = 0x48
@@ -35,7 +36,7 @@ tmp117_reg_temp = 0x00
 tmp117_reg_config = 0x01
 ########################################################
 # Name for Log File, Gives Date and Time
-log_file = datetime.now().strftime('%Y%m%d_%H%M%S') + ".txt"
+name_file=datetime.now().strftime('%Y%m%d_%H%M%S')
 ##############################################
 logged_data = ["time(s"]  # Array for Data that will be logged
 activeSensors = []  # Array of active sensors
@@ -164,7 +165,7 @@ class VL53l1x_distance_sensor:
                 global data
                 tof.start_ranging(1)
                 distance = tof.get_distance()
-                print(distance)
+                #print(distance)
                 tof.stop_ranging()
                 data.append(distance)
                 return distance
@@ -251,6 +252,14 @@ def log_data_file(data):
 # Initialize Data Log with Available Data recorded
 def initialize_log_file():
     # log data to an file as an append
+    global name_file
+    global video_file
+    global log_file
+    name_file=datetime.now().strftime('%Y%m%d_%H%M%S')
+    os.mkdir("/home/pi/Documents/logs/"+name_file)
+    video_file="/home/pi/Documents/logs/"+name_file +"/"+ name_file +".h264"
+    log_file = name_file +"/"+ name_file + ".txt"
+    
     file = open(r"/home/pi/Documents/logs/" + log_file, "a")
     for L in logged_data:
         if L == logged_data[len(logged_data) - 1]:
@@ -269,7 +278,8 @@ class MavConnection:
             master = mavutil.mavlink_connection("/dev/ttyS0", baud=115200)
             print("Waiting for Heartbeat")
             val = master.wait_heartbeat(timeout=10)  # Try adding a timeout to see if we actually get through or not
-            #@todo Check if Heartbeat Works to determine if the mavlink can be connected and detected
+            print(val)
+            #time.sleep(5)
             if val == None:
                 self._running = False
             else:
@@ -301,7 +311,9 @@ class MavConnection:
                 self.over_time = 0
                 self.time_gap = time_gap
                 self.heartBeatCount = 0
+                self.heartBeatArmed=129
                 self._running = True
+                self.initialize_mavlink_log()
         except:
             print("Failed to Initialize Mavlink")
             self.running = False
@@ -336,16 +348,19 @@ class MavConnection:
         global bad_data
         global data
         global heartBeatArmed
-
+        
         if self._running:
             try:
                 msg = master.recv_match().to_dict()
+                print(msg)
                 time.sleep(.25)
+                
                 try:
                     self.over_time = msg['time_boot_ms']
                 except:
+                    print("Overtime Exception")
                     pass
-
+                
                 if test_mode == 1:
                     print(msg['mavpackettype'])
 
@@ -355,36 +370,50 @@ class MavConnection:
                         print("Consecutive Bad Data: ", bad_data)
                         print(msg)
                 except:
+                    print("Bad Data Exception")
                     pass
-
-                if self.check_once == 0:
-                    self.base_time = msg['time_boot_ms']
-                    self.check_once = 1
-
+                
+                try:
+                    if self.check_once == 0:
+                        self.base_time = msg['time_boot_ms']
+                        self.check_once = 1
+                except:
+                    print("Check Once Exception")
+                    pass
+                
                 try:
                     if (data[0] - (self.over_time - self.base_time) / 1000) > 5:
                         self.clear_buffer()
                 except:
+                    print("Clear Buffer Exception")
                     pass
-
+                
                 if msg['mavpackettype'] == 'NAV_CONTROLLER_OUTPUT':
                     try:
                         print(msg['wp_dist'])
                     except:
                         print("Time Failed to Load")
-
+                
                 if msg['mavpackettype'] == 'HEARTBEAT':
-                    # print(msg)
-                    if msg['base_mode'] == 0:
-                        self.heartBeatCount = self.heartBeatCount + 1
-                    else:
-                        self.heartBeatCount = 0
+                    try:
+                        # print(msg)
+                        if msg['base_mode'] < 190:
+                            self.heartBeatCount = self.heartBeatCount + 1
+                            print("Count Incremented")
+                        else:
+                            self.heartBeatCount = 0
+                            print("Count Reset")
 
-                    if self.heartBeatCount > 3:
-                        heartBeatArmed = 0
-                    # heartBeatArmed=msg['base_mode']
-                    # print(heartBeatCount)
-
+                        if self.heartBeatCount > 10:
+                            self.heartBeatArmed = 0
+                        if msg['base_mode']>100:
+                            self.heartBeatArmed=129
+                        # heartBeatArmed=msg['base_mode']
+                        print(self.heartBeatCount)
+                    except:
+                        print("Heart Beat Exception")
+                        pass
+                
                 if msg['mavpackettype'] == 'GLOBAL_POSITION_INT':
                     try:
                         bad_data = 0
@@ -404,7 +433,7 @@ class MavConnection:
                 print("Exception in Mavlink")
                 # append_Blanks(9)
 
-            return msg
+            
 
     def append_data(self):
         if self._running:
@@ -453,10 +482,25 @@ def initialize_mavlink_log():
     logged_data.append("Navio2_Ground_Z_Speed (GLOBAL_POSITION_INT, cm/s)")
     logged_data.append("Navio2_Heading (GLOBAL_POSITION_INT, cdeg)")
 
-
+def camera_record():
+    global Mavlink
+    global name_file
+    global video_file
+    global log_file
+    camera = PiCamera()
+    camera.resolution=(640,480)
+    camera.framerate=20
+    camera.start_recording(video_file)
+    print("Camera Recording")
+    while Mavlink.heartBeatArmed == 129 or test_mode == 1:
+        print("recording stuff")
+        time.sleep(1)
+    camera.stop_recording()
+    camera.close()
+    
 #########################################
 # Adjustable Variables
-test_mode = 1  # This is whether we ignore whether the system is armed or not and performs the data logging
+test_mode = 0  # This is whether we ignore whether the system is armed or not and performs the data logging
 check_once = 0
 bad_data = 0
 #########################################
@@ -466,27 +510,25 @@ initialize_items = 0
 # Main Code
 while True:
     start_time = time.time()
-    while heartBeatArmed != 129 and test_mode == 0:
+    while Mavlink.heartBeatArmed != 129 and test_mode == 0:
+        print("Disarmed")
         # Since we are disarmed, we are going to reset the active sensors and create a new log file name that is just going to be the current time
         # That way when we arm up again it will make a new file.
-        log_file = datetime.now().strftime('%Y%m%d_%H%M%S') + ".txt"
+        #log_file = datetime.now().strftime('%Y%m%d_%H%M%S') + ".txt"
         logged_data = ["time(s"]  # Array for Data that will be logged
         initialize_items = 0
         # master.mav.command_long_send(master.target_system,master.target_component,mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE,0,33, 0, 0, 0, 0, 0, 0)
         time.sleep(.1)
-        try:
-            msg = Mavlink.getMessage()
-            print(msg['mavpackettype'])
-            if msg['mavpackettype'] == 'HEARTBEAT':
-                heartBeatArmed = msg['base_mode']
-                # print(heartBeatArmed)
-        except:
-            pass
+        
+        Mavlink.get_message()
+        
         # time.sleep(.5)
 
-    while heartBeatArmed == 129 or test_mode == 1:
+    while Mavlink.heartBeatArmed == 129 or test_mode == 1:
         if initialize_items == 0:
-            Mavlink=MavConnection()
+            Mavlink = MavConnection()
+            
+            
             distanceInitialize = 0
             check_global_pos_int = 0
             gas_sense = CCS811()
@@ -497,8 +539,10 @@ while True:
             print(logged_data)
             print("\n")
             initialize_log_file()
+            x = threading.Thread(target=camera_record)
+            x.start()
             initialize_items = 1
-
+        
         data = []
         data.append(round(time.time() - start_time, 3))
         gas_sense.read_gas()
@@ -506,10 +550,11 @@ while True:
         temperature = tempSense.tempReading()
         # Get VL53L1X Data
         distance = distSense.measure_distance()
+        
         # Get BME280 and CCS811 data
         envSense.get_ccs811_bme280_data()
 
-        msg = Mavlink.get_message()
+        Mavlink.get_message()
         Mavlink.append_data()
 
         try:
