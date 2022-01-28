@@ -1,46 +1,19 @@
 #######################################################
 # Current Date of Version: 1/27/2022
 #######################################################
-# The service's name is sensorPackage.service
-
-# To START use: "sudo systemctl enable sensorPackage.service"
-# To STOP  use: "sudo systemctl stop sensorPackage.service"
-#######################################################
-# To commit this back to the git page
-# git add SensorPackage.py
-# git commit -m "COMMENT"
-# git push origin main
-#######################################################
-# How to update?
-# git pull origin main
-#######################################################
 # Libraries
 import os
 from picamera import PiCamera
 import threading
 import VL53L1X
-import pip
 import time
-from smbus2 import SMBus  # Install in terminal via: "sudo pip install smbus2"
-import sys
-from enum import Enum
+from smbus2 import SMBus
 from datetime import datetime
-from math import log10, floor
-from bme280 import BME280  # for BME280: "sudo pip install pimoroni-bme280"
-# for Github: "sudo apt-get install git"
-from pymavlink import mavutil  # Install in terminal via: "sudo python -m pip install --upgrade pymavlink"
+from bme280_sensor import BME280
+from pymavlink import mavutil
 
-########################################################
-# TMP117 Registers
-tmp117_addr = 0x48
-tmp117_reg_temp = 0x00
-tmp117_reg_config = 0x01
-########################################################
-# Name for Log File, Gives Date and Time
-name_file = datetime.now().strftime('%Y%m%d_%H%M%S')
 ##############################################
 logged_data = ["time(s"]  # Array for Data that will be logged
-activeSensors = []  # Array of active sensors
 data = []
 ########################################################
 # Threading Testing
@@ -98,17 +71,14 @@ class CCS811:
             data.append(eTVOC)
 
 
-class bme280_ccs811_sensor:
+class bme280_sensor:
     def __init__(self):
         #  # Keep an eye on this, I might need to do a general call for the Bus to the entire program
         global logged_data
         # Acivate BME280 I2C
         try:
-            global bme280
-            # global ccs811Sense
-            # ccs811Sense = qwiic_ccs811.QwiicCcs811()
-            bme280 = BME280(i2c_dev=bus, i2c_addr=0x77)
-            # ccs811Sense.begin()
+            global bme280_sensor
+            bme280_sensor = BME280(i2c_dev=bus, i2c_addr=0x77)
             logged_data.append("BME280 Temperature (C)")
             logged_data.append("BME280 Pressure (hPa)")
             logged_data.append("BME280 Humidity (%)")
@@ -119,25 +89,25 @@ class bme280_ccs811_sensor:
             self._running = False
             return
 
-    def get_ccs811_bme280_data(self):
+    def get_bme280_data(self):
         try:
             if self._running:
                 global data
-                temperature = bme280.get_temperature()
+                temperature = bme280_sensor.get_temperature()
                 data.append(temperature)
-                pressure = bme280.get_pressure()
+                pressure = bme280_sensor.get_pressure()
                 data.append(pressure)
-                humidity = bme280.get_humidity()
+                humidity = bme280_sensor.get_humidity()
                 data.append(humidity)
-                altitude = bme280.get_altitude()
+                altitude = bme280_sensor.get_altitude()
                 data.append(altitude)
         except:
             if self._running:
                 print("Connection to Environmental Sensor Lost")
-                append_Blanks(6)
+                append_blanks(6)
 
 
-def append_Blanks(num_blank):
+def append_blanks(num_blank):
     global data
     for i in range(num_blank):
         data.append("")
@@ -173,7 +143,7 @@ class VL53l1x_distance_sensor:
         except:
             if self._running:
                 print("Connection to VL53L1X Lost")
-                append_Blanks(1)
+                append_blanks(1)
 
 
 class Tmp117_Sensor:
@@ -205,6 +175,10 @@ class Tmp117_Sensor:
                 # Initialize I2C (SMBus)
 
                 global data
+                # TMP117 Registers
+                tmp117_addr = 0x48
+                tmp117_reg_temp = 0x00
+                tmp117_reg_config = 0x01
                 # Read the CONFIG register (2 bytes)
                 val = bus.read_i2c_block_data(tmp117_addr, tmp117_reg_config, 2)
                 # print("Old CONFIG:", hex(val[0]),hex(val[1]))
@@ -231,46 +205,39 @@ class Tmp117_Sensor:
         except:
             if self._running:
                 print("Connection to TMP117 Lost")
-                append_Blanks(1)
+                append_blanks(1)
 
 
-##############################################
+class FullLog:
+    def __init__(self):
+        # Performance initalization
+        # Put the created log document in here
+        # probably initalized each arm, or create a re_initialize function
+        self.name_file = datetime.now().strftime('%Y%m%d_%H%M%S')
+        os.mkdir("/home/pi/Documents/logs/" + name_file)
+        self.video_file = "/home/pi/Documents/logs/" + name_file + "/" + name_file + ".h264"
+        self.log_file = name_file + "/" + name_file + ".txt"
 
-##############################################
-# Log Iteration of Data Measurements
-def log_data_file(data):
-    # log data to an file as an append
-    file = open(r"/home/pi/Documents/logs/" + log_file, "a")
-    for L in range(len(data)):
-        if L == len(data) - 1:
-            file.write(str(data[L]) + "\r\n")
-        else:
-            file.write(str(data[L]) + ",")
-    file.close()
+    def log_data_file(self, data):
+        # Log Current Data
+        # log data to an file as an append
+        file = open(r"/home/pi/Documents/logs/" + self.log_file, "a")
+        for L in range(len(data)):
+            if L == len(data) - 1:
+                file.write(str(data[L]) + "\r\n")
+            else:
+                file.write(str(data[L]) + ",")
+        file.close()
 
-
-##############################################
-# Initialize Data Log with Available Data recorded
-def initialize_log_file():
-    # log data to an file as an append
-    global name_file
-    global video_file
-    global log_file
-    name_file = datetime.now().strftime('%Y%m%d_%H%M%S')
-    os.mkdir("/home/pi/Documents/logs/" + name_file)
-    video_file = "/home/pi/Documents/logs/" + name_file + "/" + name_file + ".h264"
-    log_file = name_file + "/" + name_file + ".txt"
-
-    file = open(r"/home/pi/Documents/logs/" + log_file, "a")
-    for L in logged_data:
-        if L == logged_data[len(logged_data) - 1]:
-            file.write(str(L) + "\r\n")
-        else:
-            file.write(str(L) + ",")
-    file.close()
+    def initialize_log_file(self):
+        # might be the new function for re-initializing
+        # log data to an file as an append
+        self.name_file = datetime.now().strftime('%Y%m%d_%H%M%S')
+        os.mkdir("/home/pi/Documents/logs/" + self.name_file)
+        self.video_file = "/home/pi/Documents/logs/" + self.name_file + "/" + self.name_file + ".h264"
+        self.log_file = self.name_file + "/" + self.name_file + ".txt"
 
 
-#########################################
 class MavConnection:
     def __init__(self, time_gap=1):
         global master
@@ -447,41 +414,6 @@ class MavConnection:
             data.append(self.nav_hdg)
 
 
-# So here I want to select what Mavlink Data to bring in to the Data Log
-def initialize_mavlink():
-    global master
-    master = mavutil.mavlink_connection("/dev/ttyS0", baud=115200)
-    print("Waiting for Heartbeat")
-    master.wait_heartbeat(timeout=10)  # Try adding a timeout to see if we actually get through or not
-    print("Heartbeat Received")
-    master.mav.request_data_stream_send(master.target_system, master.target_component,
-                                        mavutil.mavlink.MAV_DATA_STREAM_ALL, 1, 0)
-    time.sleep(0.1)
-    master.mav.command_long_send(master.target_system, master.target_component,
-                                 mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, 0,
-                                 mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT, 1e6 / 1, 2, 0, 0, 0, 0)
-    time.sleep(0.1)
-    master.mav.command_long_send(master.target_system, master.target_component,
-                                 mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, 0,
-                                 mavutil.mavlink.MAVLINK_MSG_ID_GPS_STATUS, 1e6 / 1, 2, 0, 0, 0, 0)
-    time.sleep(0.1)
-    # master.mav.request_data_stream_send(master.target_system, master.target_component,mavutil.mavlink.MAV_DATA_STREAM_POSITION, 1,1)
-    # master.mav.request_data_stream_send(master.target_system, master.target_component,mavutil.mavlink.MAV_DATA_STREAM_RAW_CONTROLLER, 1,1)
-
-
-def initialize_mavlink_log():
-    global logged_data
-    logged_data.append("Navio2_Time (GLOBAL_POSITION_INT, ms)")
-    logged_data.append("Navio2_latitude (GLOBAL_POSITION_INT, degE7)")
-    logged_data.append("Navio2_longitude (GLOBAL_POSITION_INT, degE7)")
-    logged_data.append("Navio2_Relative_Altitude (GLOBAL_POSITION_INT, mm)")
-    logged_data.append("Navio2_Altitude (GLOBAL_POSITION_INT, mm)")
-    logged_data.append("Navio2_Ground_X_Speed (GLOBAL_POSITION_INT, cm/s)")
-    logged_data.append("Navio2_Ground_Y_Speed (GLOBAL_POSITION_INT, cm/s)")
-    logged_data.append("Navio2_Ground_Z_Speed (GLOBAL_POSITION_INT, cm/s)")
-    logged_data.append("Navio2_Heading (GLOBAL_POSITION_INT, cdeg)")
-
-
 def camera_record():
     global Mavlink
     global name_file
@@ -506,6 +438,7 @@ check_once = 0
 bad_data = 0
 #########################################
 Mavlink = MavConnection()
+Log = FullLog()
 heartBeatArmed = 0
 initialize_items = 0
 # Main Code
@@ -518,42 +451,38 @@ while True:
         # log_file = datetime.now().strftime('%Y%m%d_%H%M%S') + ".txt"
         logged_data = ["time(s"]  # Array for Data that will be logged
         initialize_items = 0
-        # master.mav.command_long_send(master.target_system,master.target_component,mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE,0,33, 0, 0, 0, 0, 0, 0)
         time.sleep(.1)
-
         Mavlink.get_message()
-
-        # time.sleep(.5)
 
     while Mavlink.heartBeatArmed == 129 or test_mode == 1:
         if initialize_items == 0:
             Mavlink = MavConnection()
-
+            Log.initialize_log_file()
             distanceInitialize = 0
             check_global_pos_int = 0
             gas_sense = CCS811()
             tempSense = Tmp117_Sensor()
             distSense = VL53l1x_distance_sensor()
-            envSense = bme280_ccs811_sensor()
+            envSense = bme280_sensor()
             print("Data Being Logged: ")
             print(logged_data)
             print("\n")
-            initialize_log_file()
+            Log.log_data_file(logged_data)
             x = threading.Thread(target=camera_record)
             x.start()
             initialize_items = 1
 
         data = []
         data.append(round(time.time() - start_time, 3))
+        # CCS811 Data
         gas_sense.read_gas()
         # Get TMP117 Data
         temperature = tempSense.tempReading()
         # Get VL53L1X Data
         distance = distSense.measure_distance()
-
         # Get BME280 and CCS811 data
-        envSense.get_ccs811_bme280_data()
-
+        envSense.get_bme280_data()
+        # Mavlink Get Message
         Mavlink.get_message()
         Mavlink.append_data()
 
@@ -561,5 +490,5 @@ while True:
             print(data)
         except:
             pass
-        log_data_file(data)
+        Log.log_data_file(data)
         # time.sleep(0.1)
