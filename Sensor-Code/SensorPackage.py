@@ -4,12 +4,13 @@
 # Libraries
 import os
 from picamera import PiCamera
+from picamera import Color
 import threading
 import VL53L1X
 import time
 from smbus2 import SMBus
 from datetime import datetime
-from bme280_sensor import BME280
+from bme280 import BME280
 from pymavlink import mavutil
 
 ##############################################
@@ -84,6 +85,7 @@ class bme280_sensor:
             logged_data.append("BME280 Humidity (%)")
             logged_data.append("BME280 Altitude (ft)")
             self._running = True
+            self.altitude=0
         except:
             print("BME280 not Detected")
             self._running = False
@@ -99,8 +101,8 @@ class bme280_sensor:
                 data.append(pressure)
                 humidity = bme280_sensor.get_humidity()
                 data.append(humidity)
-                altitude = bme280_sensor.get_altitude()
-                data.append(altitude)
+                self.altitude = bme280_sensor.get_altitude()
+                data.append(self.altitude)
         except:
             if self._running:
                 print("Connection to Environmental Sensor Lost")
@@ -120,7 +122,7 @@ class VL53l1x_distance_sensor:
         try:
             global tof
             bus.read_byte_data(0x29, 0x00)
-            print("Received a Response")
+            #print("Received a Response")
             tof = VL53L1X.VL53L1X(i2c_bus=4, i2c_address=0x29)
             tof.open()
             logged_data.append("VL53L1X Distance (mm)")
@@ -152,7 +154,7 @@ class Tmp117_Sensor:
         global logged_data
         try:
             bus.read_byte_data(tmp117_addr, 0x00)
-            print("Received a Response")
+            #print("Received a Response")
             logged_data.append("TMP 117 temperature (C)")
             self._running = True
         except:
@@ -214,9 +216,9 @@ class FullLog:
         # Put the created log document in here
         # probably initalized each arm, or create a re_initialize function
         self.name_file = datetime.now().strftime('%Y%m%d_%H%M%S')
-        os.mkdir("/home/pi/Documents/logs/" + name_file)
-        self.video_file = "/home/pi/Documents/logs/" + name_file + "/" + name_file + ".h264"
-        self.log_file = name_file + "/" + name_file + ".txt"
+        os.mkdir("/home/pi/Documents/logs/" + self.name_file)
+        self.video_file = "/home/pi/Documents/logs/" + self.name_file + "/" + self.name_file + ".h264"
+        self.log_file = self.name_file + "/" + self.name_file + ".txt"
 
     def log_data_file(self, data):
         # Log Current Data
@@ -316,11 +318,11 @@ class MavConnection:
         global bad_data
         global data
         global heartBeatArmed
+        global test_mode
 
         if self._running:
             try:
                 msg = master.recv_match().to_dict()
-                print(msg)
                 time.sleep(.25)
 
                 try:
@@ -336,7 +338,7 @@ class MavConnection:
                     if msg['mavpackettype'] == 'BAD_DATA':
                         self.bad_data = self.bad_data + 1
                         print("Consecutive Bad Data: ", bad_data)
-                        print(msg)
+                        #print(msg)
                 except:
                     print("Bad Data Exception")
                     pass
@@ -377,7 +379,7 @@ class MavConnection:
                         if msg['base_mode'] > 100:
                             self.heartBeatArmed = 129
                         # heartBeatArmed=msg['base_mode']
-                        print(self.heartBeatCount)
+                        #print(self.heartBeatCount)
                     except:
                         print("Heart Beat Exception")
                         pass
@@ -416,24 +418,25 @@ class MavConnection:
 
 def camera_record():
     global Mavlink
-    global name_file
-    global video_file
-    global log_file
+    global Log
+    global envSense
     camera = PiCamera()
     camera.resolution = (640, 480)
     camera.framerate = 20
-    camera.start_recording(video_file)
+    camera.start_recording(Log.video_file)
+    camera.annotate_background = Color('black')
+    camera.annotate_foreground = Color('white')
     print("Camera Recording")
     while Mavlink.heartBeatArmed == 129 or test_mode == 1:
-        print("recording stuff")
-        time.sleep(1)
+        time.sleep(0.5)
+        camera.annotate_text ="Altitude: " + str(envSense.altitude)
     camera.stop_recording()
     camera.close()
 
 
 #########################################
 # Adjustable Variables
-test_mode = 0  # This is whether we ignore whether the system is armed or not and performs the data logging
+test_mode = 1  # This is whether we ignore whether the system is armed or not and performs the data logging
 check_once = 0
 bad_data = 0
 #########################################
@@ -446,9 +449,6 @@ while True:
     start_time = time.time()
     while Mavlink.heartBeatArmed != 129 and test_mode == 0:
         print("Disarmed")
-        # Since we are disarmed, we are going to reset the active sensors and create a new log file name that is just going to be the current time
-        # That way when we arm up again it will make a new file.
-        # log_file = datetime.now().strftime('%Y%m%d_%H%M%S') + ".txt"
         logged_data = ["time(s"]  # Array for Data that will be logged
         initialize_items = 0
         time.sleep(.1)
