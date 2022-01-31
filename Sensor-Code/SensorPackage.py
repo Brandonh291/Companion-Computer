@@ -9,6 +9,7 @@ import threading
 import VL53L1X
 import time
 from smbus2 import SMBus
+from smbus2 import i2c_msg
 from datetime import datetime
 from bme280 import BME280
 from pymavlink import mavutil
@@ -19,7 +20,62 @@ data = []
 ########################################################
 # Threading Testing
 bus = SMBus(4)
-
+class microPressure:
+    def __init__(self):
+        try:
+            global logged_data
+            #address is 0x18
+            data1=[]
+            msg=i2c_msg.write(0x18,[0xAA,0X00,0x00])
+            data1=list(msg)
+            bus.i2c_rdwr(msg)
+            time.sleep(1)
+            val=bus.read_byte(0x18)
+            print(val)
+            msg=i2c_msg.read(0x18,4)
+            bus.i2c_rdwr(msg)
+            data1=list(msg)
+            status=data1[0]
+            print(bin(status))
+            self.Pressure=0
+            self._running=True
+            logged_data.append("Micro Pressure Sensor Pressure (psi)")
+            print("Did I get Here")
+        except:
+            self._running=False
+            print("Exception in Initialization")
+    def read_pressure(self):
+        try:
+            if self._running:
+                global data
+                #address is 0x18
+                cont=[]
+                msg=i2c_msg.write(0x18,[0xAA,0X00,0x00])
+                cont=list(msg)
+                bus.i2c_rdwr(msg)
+                time.sleep(1)
+                val=bus.read_byte(0x18)
+                #print(val)
+                msg=i2c_msg.read(0x18,4)
+                bus.i2c_rdwr(msg)
+                cont=list(msg)
+                outputs=cont[1]<<16 or cont[2]<<8 or cont[3]
+                #print(outputs)
+                # 10% to 90% calibration
+                output_max=0xE66666
+                output_min=0x19999A
+                Pmax=25.000 # max psi
+                Pmin=0.000 # min psi
+                #print("Calc")
+                
+                self.Pressure=(outputs-output_min)*(Pmax-Pmin)
+                self.Pressure=(self.Pressure / (output_max-output_min))+Pmin
+                print(self.Pressure)
+                data.append(self.Pressure)
+                
+                
+        except:
+            print("Failed Pressure Reading")
 
 class CCS811:
     def __init__(self):
@@ -151,8 +207,11 @@ class VL53l1x_distance_sensor:
 class Tmp117_Sensor:
     def __init__(self):
         # Keep an eye on this, I might need to do a general call for the Bus to the entire program
-        global logged_data
         try:
+            global logged_data
+            tmp117_addr = 0x48
+            tmp117_reg_temp = 0x00
+            tmp117_reg_config = 0x01
             bus.read_byte_data(tmp117_addr, 0x00)
             #print("Received a Response")
             logged_data.append("TMP 117 temperature (C)")
@@ -283,7 +342,6 @@ class MavConnection:
                 self.heartBeatCount = 0
                 self.heartBeatArmed = 129
                 self._running = True
-                self.initialize_mavlink_log()
         except:
             print("Failed to Initialize Mavlink")
             self.running = False
@@ -442,6 +500,7 @@ bad_data = 0
 #########################################
 Mavlink = MavConnection()
 Log = FullLog()
+logged_data = ["time(s"]  # Array for Data that will be logged
 heartBeatArmed = 0
 initialize_items = 0
 # Main Code
@@ -464,6 +523,8 @@ while True:
             tempSense = Tmp117_Sensor()
             distSense = VL53l1x_distance_sensor()
             envSense = bme280_sensor()
+            microPress= microPressure()
+            Mavlink.initialize_mavlink_log()
             print("Data Being Logged: ")
             print(logged_data)
             print("\n")
@@ -482,6 +543,8 @@ while True:
         distance = distSense.measure_distance()
         # Get BME280 and CCS811 data
         envSense.get_bme280_data()
+        # Micro Pressure
+        microPress.read_pressure()
         # Mavlink Get Message
         Mavlink.get_message()
         Mavlink.append_data()
@@ -492,3 +555,4 @@ while True:
             pass
         Log.log_data_file(data)
         # time.sleep(0.1)
+
