@@ -1,5 +1,6 @@
 #######################################################
-# Current Date of Version: 1/27/2022
+# Current Date of Version: 02/01/2022
+# Rover IP: 10.0.1.15
 #######################################################
 # Libraries
 import os
@@ -268,7 +269,55 @@ class Tmp117_Sensor:
                 print("Connection to TMP117 Lost")
                 append_blanks(1)
 
-
+class SCD4X_CO2:
+    
+    def __init__(self):
+        global logged_data
+        try:
+            self.address=0x62
+            time.sleep(1) # Startup time
+            bus.write_byte(0x62,0x21b1) # Begin Periodic Measurements
+            time.sleep(0.1)
+            bus.write_byte(0x62,0xec05)
+            time.sleep(0.005)
+            read=i2c_msg.read(0x62,9)
+            bus.i2c_rdwr(read)
+            data=list(read)
+            #print(data)
+            self.CO2=data[0]<<8 or data[1]
+            self.Temp=data[3]<<8 or data[4]
+            self.RH=data[6]<<8 or data[7]
+            self.Temp=-45.0 + 175*self.Temp/65536
+            self.RH=100.0*self.RH/65536
+            #print("CO2: " +str(CO2))
+            #print("Temp: " +str(Temp))
+            #print("RH: "+str(RH))
+            logged_data.append("SCD4X CO2 PPM")
+            logged_data.append("SCD4X Temperature (C)")
+            logged_data.append("SCD4X Relative Humidity %")
+            self._running=True
+        except:
+            self._running=False
+            print("SCD4X Failure")
+            
+    def readSensor(self):
+        global data
+        if self._running:
+            time.sleep(5)
+            bus.write_byte(0x62,0xec05)
+            time.sleep(0.005)
+            read=i2c_msg.read(0x62,9)
+            bus.i2c_rdwr(read)
+            result=list(read)
+            #print(data)
+            self.CO2=result[0]<<8 or result[1]
+            self.Temp=result[3]<<8 or result[4]
+            self.RH=result[6]<<8 or result[7]
+            self.Temp=-45.0 + 175.0*self.Temp/65536.0
+            self.RH=100.0*self.RH/65536.0
+            data.append(self.CO2)
+            data.append(self.Temp)
+            data.append(self.RH)
 class FullLog:
     def __init__(self):
         # Performance initalization
@@ -473,11 +522,30 @@ class MavConnection:
             data.append(self.nav_vz)
             data.append(self.nav_hdg)
 
-
+def increment_Sense(counter):
+    global listing
+    global result_listing
+    global incremental
+    display_text=[]
+    if(len(result_listing)>0):
+        print("Counter: " + str(counter))
+        print(listing[counter])
+        print(len(listing))
+        print(result_listing[counter])
+        print(len(result_listing))
+        display_text=str(listing[counter])+": "+ str(result_listing[counter])
+        if incremental==len(result_listing)-1:
+            incremental=0
+        else:
+            incremental=incremental+1
+    return display_text
+    
+        
 def camera_record():
     global Mavlink
     global Log
     global envSense
+    global incremental
     camera = PiCamera()
     camera.resolution = (640, 480)
     camera.framerate = 20
@@ -485,9 +553,12 @@ def camera_record():
     camera.annotate_background = Color('black')
     camera.annotate_foreground = Color('white')
     print("Camera Recording")
+    alt_text=increment_Sense(incremental)
+    time.sleep(3)
     while Mavlink.heartBeatArmed == 129 or test_mode == 1:
-        time.sleep(0.5)
-        camera.annotate_text ="Altitude: " + str(envSense.altitude)
+        time.sleep(2)
+        camera.annotate_text =alt_text
+        alt_text=increment_Sense(incremental)
     camera.stop_recording()
     camera.close()
 
@@ -497,10 +568,13 @@ def camera_record():
 test_mode = 1  # This is whether we ignore whether the system is armed or not and performs the data logging
 check_once = 0
 bad_data = 0
+incremental=0
+listing=[]
+result_listing=[]
 #########################################
 Mavlink = MavConnection()
 Log = FullLog()
-logged_data = ["time(s"]  # Array for Data that will be logged
+logged_data = ["time(s)"]  # Array for Data that will be logged
 heartBeatArmed = 0
 initialize_items = 0
 # Main Code
@@ -508,7 +582,7 @@ while True:
     start_time = time.time()
     while Mavlink.heartBeatArmed != 129 and test_mode == 0:
         print("Disarmed")
-        logged_data = ["time(s"]  # Array for Data that will be logged
+        logged_data = ["time(s)"]  # Array for Data that will be logged
         initialize_items = 0
         time.sleep(.1)
         Mavlink.get_message()
@@ -524,9 +598,11 @@ while True:
             distSense = VL53l1x_distance_sensor()
             envSense = bme280_sensor()
             microPress= microPressure()
+            adaSensor=SCD4X_CO2()
             Mavlink.initialize_mavlink_log()
             print("Data Being Logged: ")
             print(logged_data)
+            listing=logged_data
             print("\n")
             Log.log_data_file(logged_data)
             x = threading.Thread(target=camera_record)
@@ -545,14 +621,18 @@ while True:
         envSense.get_bme280_data()
         # Micro Pressure
         microPress.read_pressure()
+        #Adafruit Sensor
+        adaSensor.readSensor()
         # Mavlink Get Message
         Mavlink.get_message()
         Mavlink.append_data()
 
         try:
             print(data)
+            result_listing=data
         except:
             pass
         Log.log_data_file(data)
         # time.sleep(0.1)
+
 
