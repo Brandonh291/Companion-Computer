@@ -1,5 +1,5 @@
 #######################################################
-# Current Date of Version: 02/01/2022
+# Current Date of Version: 03/29/2022
 # Rover IP: 10.0.1.15
 #######################################################
 # Libraries
@@ -419,7 +419,14 @@ class MavConnection:
                     pass
                 if (data[0] - (self.over_time - self.base_time) / 1000) < self.time_gap:
                     overtime = 0
-
+    def send_message(self,flag):
+        global heartBeatArmed
+        if flag==1:
+            master.mav.statustext_send(mavutil.mavlink.MAV_SEVERITY_NOTICE,
+                           "Recording Data".encode())
+        else:
+            master.mav.statustext_send(mavutil.mavlink.MAV_SEVERITY_NOTICE,
+                           "Disarmed".encode()) 
     def get_message(self):
         global check_once
         global bad_data
@@ -548,6 +555,7 @@ def camera_record():
     global incremental
     camera = PiCamera()
     camera.resolution = (640, 480)
+    camera.rotation=180
     camera.framerate = 20
     camera.start_recording(Log.video_file)
     camera.annotate_background = Color('black')
@@ -565,7 +573,7 @@ def camera_record():
 
 #########################################
 # Adjustable Variables
-test_mode = 1  # This is whether we ignore whether the system is armed or not and performs the data logging
+test_mode = 0  # This is whether we ignore whether the system is armed or not and performs the data logging
 check_once = 0
 bad_data = 0
 incremental=0
@@ -586,9 +594,13 @@ while True:
         initialize_items = 0
         time.sleep(.1)
         Mavlink.get_message()
+        Mavlink.send_message(0)
+        
 
     while Mavlink.heartBeatArmed == 129 or test_mode == 1:
-        if initialize_items == 0:
+        print("Logging")
+        
+        if initialize_items == 0:  
             Mavlink = MavConnection()
             Log.initialize_log_file()
             distanceInitialize = 0
@@ -608,7 +620,8 @@ while True:
             x = threading.Thread(target=camera_record)
             x.start()
             initialize_items = 1
-
+        
+        Mavlink.send_message(1)
         data = []
         data.append(round(time.time() - start_time, 3))
         # CCS811 Data
