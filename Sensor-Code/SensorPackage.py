@@ -41,7 +41,7 @@ class microPressure:
             self.Pressure=0
             self._running=True
             logged_data.append("Micro Pressure Sensor Pressure (psi)")
-            print("Did I get Here")
+            #print("Did I get Here")
         except:
             self._running=False
             print("Exception in Initialization")
@@ -318,6 +318,7 @@ class SCD4X_CO2:
             data.append(self.CO2)
             data.append(self.Temp)
             data.append(self.RH)
+            
 class FullLog:
     def __init__(self):
         # Performance initalization
@@ -547,6 +548,72 @@ def increment_Sense(counter):
             incremental=incremental+1
     return display_text
     
+class ADC():
+    def __init__(self):
+        try:
+            global logged_data
+            self.addr=0x48
+            write=bus.write_byte_data(self.addr,0x40,0xff)
+        #read=i2c_msg.read(self.addr,3)
+        #bus.i2c_rdwr(read)
+        #for value in read:
+             #print(value*(3.3/255.0))
+#         write=i2c_msg.write(addr,[0x00])
+#         #write=i2c_msg.write(addr,[0x44])
+#         time.sleep(0.1)
+#         
+#         bus.i2c_rdwr(write)
+#         read=i2c_msg.read(addr,3)
+#         bus.i2c_rdwr(read)
+#         for value in read:
+#             print(value)
+        #bus.write_i2c_block_data(addr,0b0000000,0)
+        #bus.read_byte_data(addr,0)
+            self.expectedValue=0
+            self.ave=0
+            self.maxDiff=0
+            self.running=True
+            logged_data.append("Analog Voltage Channel 1 (V)")
+        except:
+            self.running=False
+        
+    def read_ADC(self,channel):
+        global data
+        try:
+            if self.running:
+                
+                write=i2c_msg.write(self.addr,[64+channel])
+                #read=i2c_msg.read(self.addr,channel)
+                ave=0
+                readings=5
+                for i in range(readings):
+                
+                    read=i2c_msg.read(self.addr,3)
+                    bus.i2c_rdwr(write,read)
+                    msg=list(read)
+                #print(data[2]*3.3/255.0)
+                    ave=ave+msg[2]*3.2/256.0
+                    time.sleep(0.01)
+                ave=ave/readings
+            #print("Average Voltage: "+str(ave))
+                self.ave=ave
+                #print("Difference: " +str(self.expectedValue-self.ave))
+                #diff=self.expectedValue-self.ave
+            #if diff>self.maxDiff:
+             #   self.maxDiff=diff
+                data.append(ave)
+                
+        except:
+            print("failed ADC")
+    def set_DAC(self,value):
+        write=bus.write_byte_data(self.addr,0x40,value)
+        self.expectedValue=value*0.012566
+        print("Expected Value: " +str(value*0.012566))
+        #read=i2c_msg.read(self.addr,2)
+        #bus.i2c_rdwr(write,read)
+        time.sleep(0.1)
+        
+        
         
 def camera_record():
     global Mavlink
@@ -573,7 +640,7 @@ def camera_record():
 
 #########################################
 # Adjustable Variables
-test_mode = 0  # This is whether we ignore whether the system is armed or not and performs the data logging
+test_mode = 1  # This is whether we ignore whether the system is armed or not and performs the data logging
 check_once = 0
 bad_data = 0
 incremental=0
@@ -611,6 +678,8 @@ while True:
             envSense = bme280_sensor()
             microPress= microPressure()
             adaSensor=SCD4X_CO2()
+            ADCSensor=ADC()
+            
             Mavlink.initialize_mavlink_log()
             print("Data Being Logged: ")
             print(logged_data)
@@ -636,6 +705,8 @@ while True:
         microPress.read_pressure()
         #Adafruit Sensor
         adaSensor.readSensor()
+        #ADC
+        ADCSensor.read_ADC(0)
         # Mavlink Get Message
         Mavlink.get_message()
         Mavlink.append_data()
