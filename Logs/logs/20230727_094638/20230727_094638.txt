@@ -1,0 +1,1 @@
+Time (s),TMP117 Temp (C),SHTC3 Temp (C),SHTC Humidity (%),Micro Pressure (psi),BME280 Temp (C),BME280 Press. (Pa),BME280 Humidity (%),BME280 Altitude (m),CCS811 tVOC (ppb),CCS811 CO2 (ppm)
