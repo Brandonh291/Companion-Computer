@@ -46,8 +46,9 @@ class Vehicle(threading.Thread):
     def getMessage(self):
         if self._running:
             self.msg=self.nav.recv_match().to_dict()
+            print(self.msg)
     def setIntervals(self):
-        self.nav.mav.request_data_stream_send(1,0,mavutil.mavlink.MAV_DATA_STREAM_ALL,6,0)
+        self.nav.mav.request_data_stream_send(1,0,mavutil.mavlink.MAV_DATA_STREAM_ALL,6,1)
         print("All Stream Halted")
         self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,2) # VFR_HUD, 2Hz
         print("VFR HUD Stream Started")
@@ -69,6 +70,8 @@ class Vehicle(threading.Thread):
         print("GLOBAL_POSITION_INT Stream Started")
         self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_RAW_IMU,2)
         print("RAW_IMU Stream Started")
+        self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_RAW_BATTERY_STATUS,2)
+        print("BATTERY_STATUS Stream Started")
     def parseMessage(self):
         if self._running:
             if self.msg['mavpackettype']=='VFR_HUD':
@@ -101,6 +104,9 @@ class Vehicle(threading.Thread):
             elif self.msg['mavpackettype']=='RAW_IMU':
                 print(self.msg)
                 self.RAW_IMU=self.msg
+            elif self.msg['mavpackettype']=='BATTERY_STATUS':
+                print(self.msg)
+                self.BATTERY_STATUS=self.msg
             else:
                 pass
     def run(self):
@@ -110,7 +116,7 @@ class Vehicle(threading.Thread):
                 #print(navio.nav.messages)
                 try:
                     self.getMessage()
-                    self.parseMessage()
+                    #self.parseMessage()
                 except:
                     print("passing")
                     pass
