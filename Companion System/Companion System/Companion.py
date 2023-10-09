@@ -129,6 +129,10 @@ class dataRecordBus (threading.Thread):
                     print("NEW LOG")
             if self.makeNew and navio.HEARTBEAT['type'] == 10 and navio.heart== True and navio.HEARTBEAT['base_mode']>128:
                 self.makeFile()
+                print(sensor.header)
+                print(navio.header)
+                self.combineHeader(sensor.header,navio.header)
+                self.log_data_file(self.Header)                           # Log header data into log file
                 print("New Log Made")
             self.log_data_file(sensor.dataFull+navio.dataFull)                     # Log current sensor data
             time.sleep(.05)                                         # Sleep 50ms
@@ -179,14 +183,15 @@ class Vehicle(threading.Thread):
             self.VFR_HUD=self.createEmpty(self.VFR_HUD_HEADER)
             self.header = self.header + self.VFR_HUD_HEADER
             
-            #Set POSITION_TARGET_GLOBAL_INT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT,1) #GPS_RAW_INT, 2 Hz
-            print("POSITION_TARGET_GLOBAL_INT Stream Started")
-            self.POSITION_TARGET_GLOBAL_INT_HEADER=['mavpackettype', 'time_boot_ms', 'coordinate_frame', 'type_mask',
-                                                'lat_int', 'lon_int', 'alt', 'vx', 'vy', 'vz', 'afx', 'afy',
-                                                'afz', 'yaw', 'yaw_rate']
-            self.POSITION_TARGET_GLOBAL_INT=self.createEmpty(self.POSITION_TARGET_GLOBAL_INT_HEADER)
-            self.header = self.header + self.POSITION_TARGET_GLOBAL_INT_HEADER
+            if self.frame == 'plane':
+                #Set POSITION_TARGET_GLOBAL_INT
+                self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT,1) #GPS_RAW_INT, 2 Hz
+                print("POSITION_TARGET_GLOBAL_INT Stream Started")
+                self.POSITION_TARGET_GLOBAL_INT_HEADER=['mavpackettype', 'time_boot_ms', 'coordinate_frame', 'type_mask',
+                                                    'lat_int', 'lon_int', 'alt', 'vx', 'vy', 'vz', 'afx', 'afy',
+                                                    'afz', 'yaw', 'yaw_rate']
+                self.POSITION_TARGET_GLOBAL_INT=self.createEmpty(self.POSITION_TARGET_GLOBAL_INT_HEADER)
+                self.header = self.header + self.POSITION_TARGET_GLOBAL_INT_HEADER
             
             # Set AHRS
             self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_AHRS,1)
@@ -292,7 +297,10 @@ class Vehicle(threading.Thread):
     def createData(self):
         if self.heart:
             if (self.HEARTBEAT['base_mode'] >128 and self.HEARTBEAT['type'] == 10) or (self.HEARTBEAT['type'] != 10):
-                self.dataFull = list(self.VFR_HUD.values())+list(self.POSITION_TARGET_GLOBAL_INT.values())+list(self.AHRS.values())+list(self.GPS_RAW_INT.values()) + list(self.RC_CHANNELS.values()) + list(self.MISSION_CURRENT.values()) 
+                self.dataFull = list(self.VFR_HUD.values()) 
+                if self.frame == 'plane':
+                    self.dataFull = self.dataFull + list(self.POSITION_TARGET_GLOBAL_INT.values())
+                self.dataFull = self.dataFull +list(self.AHRS.values())+list(self.GPS_RAW_INT.values()) + list(self.RC_CHANNELS.values()) + list(self.MISSION_CURRENT.values())
                 if self.frame == 'plane':
                     self.dataFull = self.dataFull + list(self.NAV_CONTROLLER_OUTPUT.values())
                 self.dataFull = self.dataFull + list(self.SYS_STATUS.values()) + list(self.GLOBAL_POSITION_INT.values()) + list(self.RAW_IMU.values())+list(self.BATTERY_STATUS.values())+list(self.HEARTBEAT.values())
