@@ -20,13 +20,13 @@ startTime=time.time()                                           # Use to mark a 
 class sensorBus (threading.Thread):
     def __init__ (self):
         threading.Thread.__init__(self)
-        self.checkConn()                                            # Attempt to initialize all possible sensors
         self.dataFull=[]                                            # Initialize data array
         self.header=[]                                              # initialize header array
         self.makeHeader()                                           # Create header
-        
+        self._running=True
     # Create header for recorded data based on what sensors passed initialization
     def makeHeader(self):
+        self.checkConn()                                            # Attempt to initialize all possible sensors
         self.header.append("Time (s)")
         if self.tmp._running:
             self.header.append("TMP117 Temp (C)")
@@ -69,7 +69,7 @@ class sensorBus (threading.Thread):
             
     # What will run inside the thread        
     def run(self):
-        while True:
+        while self._running:
             self.timer1=time.time()                                 # Mark current time
             
             # Read latest available data from all sensors
@@ -82,7 +82,7 @@ class sensorBus (threading.Thread):
             # For timing purposes
             self.timer2=time.time()
             self.timeTotal=self.timer2-self.timer1
-            print("Time to collect all sensors: ",self.timeTotal)
+            #print("Time to collect all sensors: ",self.timeTotal)
             
             self.fillData()                                        # Create data array from newly recorded sensors
            
@@ -100,21 +100,36 @@ class sensorBus (threading.Thread):
 class dataRecordBus (threading.Thread):
     def __init__ (self):
         threading.Thread.__init__(self)
+        self.makeFile()
+        self.newCount=0
+        self._running=True
+    def makeFile(self):
+        global startTime
+        startTime = time.time()
         self.name_file = datetime.now().strftime('%Y%m%d_%H%M%S')   # Create file name
         os.mkdir("/home/pi/Documents/logs/" + self.name_file)       # Create log directory
         self.log_file = self.name_file + "/" + self.name_file + ".txt" # Create log file
         self.video_file = "/home/pi/Documents/logs/" + self.name_file + "/" + self.name_file + ".h264" # Create video file
-        
+        self.makeNew=False
     def combineHeader(self,header1,header2):
         self.Header=sensor.header+navio.header
     # Thread main code
     def run(self):
-        time.sleep(5)
+        time.sleep(10)
         print(sensor.header)
         print(navio.header)
         self.combineHeader(sensor.header,navio.header)
         self.log_data_file(self.Header)                           # Log header data into log file
-        while True:
+        while self._running:
+            if navio.HEARTBEAT['type']==10 and navio.heart == True and navio.HEARTBEAT['base_mode']<128 and self.makeNew==False:
+                self.newCount = self.newCount+1
+                if self.newCount > 5:
+                    self.makeNew=True
+                    self.newCount=0
+                    print("NEW LOG")
+            if self.makeNew and navio.HEARTBEAT['type'] == 10 and navio.heart== True and navio.HEARTBEAT['base_mode']>128:
+                self.makeFile()
+                print("New Log Made")
             self.log_data_file(sensor.dataFull+navio.dataFull)                     # Log current sensor data
             time.sleep(.05)                                         # Sleep 50ms
     # Save data in log text file        
@@ -137,6 +152,7 @@ class Vehicle(threading.Thread):
         
             self.heartVal = self.nav.wait_heartbeat(timeout=30) # Waiting 30 seconds for a heart message
             self.frame=frame
+            self.heart=False
             if self.heartVal == None:
                 print("Failure")
                 self._running = False # If we receive no message, then set vehicle to not running so we dont mess up asking for additonal commands
@@ -157,14 +173,14 @@ class Vehicle(threading.Thread):
         # Do Plane Initialization
         if self.frame == 'plane' or self.frame == 'rover':
             # Set VFR HUD
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,2) # VFR_HUD, 2Hz
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,1) # VFR_HUD, 2Hz
             print("VFR HUD Stream Started")
             self.VFR_HUD_HEADER=['mavpackettype', 'airspeed', 'groundspeed', 'heading', 'throttle', 'alt', 'climb']
             self.VFR_HUD=self.createEmpty(self.VFR_HUD_HEADER)
             self.header = self.header + self.VFR_HUD_HEADER
             
             #Set POSITION_TARGET_GLOBAL_INT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT,2) #GPS_RAW_INT, 2 Hz
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT,1) #GPS_RAW_INT, 2 Hz
             print("POSITION_TARGET_GLOBAL_INT Stream Started")
             self.POSITION_TARGET_GLOBAL_INT_HEADER=['mavpackettype', 'time_boot_ms', 'coordinate_frame', 'type_mask',
                                                 'lat_int', 'lon_int', 'alt', 'vx', 'vy', 'vz', 'afx', 'afy',
@@ -173,7 +189,7 @@ class Vehicle(threading.Thread):
             self.header = self.header + self.POSITION_TARGET_GLOBAL_INT_HEADER
             
             # Set AHRS
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_AHRS,2)
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_AHRS,1)
             print("AHRS Stream Started")
             self.AHRS_HEADER=['mavpackettype', 'omegaIx', 'omegaIy', 'omegaIz', 'accel_weight',
                           'renorm_val', 'error_rp', 'error_yaw']
@@ -181,7 +197,7 @@ class Vehicle(threading.Thread):
             self.header = self.header + self.AHRS_HEADER
             
             # Set GPS_RAW_INT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_GPS_RAW_INT,2)
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_GPS_RAW_INT,1)
             print("GPS_RAW_INT Stream Started")
             self.GPS_RAW_INT_HEADER=['mavpackettype', 'time_usec', 'fix_type', 'lat', 'lon', 'alt',
                                  'eph', 'epv', 'vel', 'cog', 'satellites_visible']
@@ -189,7 +205,7 @@ class Vehicle(threading.Thread):
             self.header = self.header + self.GPS_RAW_INT_HEADER
             
             # Set RC_CHANNELS
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_RC_CHANNELS,2)
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_RC_CHANNELS,1)
             print("RC_CHANNELS Stream Started")
             self.RC_CHANNELS_HEADER=['mavpackettype', 'time_boot_ms', 'chancount', 'chan1_raw',
                                  'chan2_raw', 'chan3_raw', 'chan4_raw', 'chan5_raw', 'chan6_raw',
@@ -200,7 +216,7 @@ class Vehicle(threading.Thread):
             self.header = self.header + self.RC_CHANNELS_HEADER
             
             # Set MISSION_CURRENT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_MISSION_CURRENT,2)
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_MISSION_CURRENT,1)
             print("MISSION_CURRENT Stream Started")
             self.MISSION_CURRENT_HEADER=['mavpackettype', 'seq']
             self.MISSION_CURRENT=self.createEmpty(self.MISSION_CURRENT_HEADER)
@@ -208,7 +224,7 @@ class Vehicle(threading.Thread):
             
             if self.frame == 'plane':
                 # Set NAV_CONTROLLER_OUTPUT
-                self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT,2)
+                self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT,1)
                 print("NAV_CONTROLLER_OUTPUT Stream Started")
                 self.NAV_CONTROLLER_OUTPUT_HEADER=['mavpackettype', 'nav_roll', 'nav_pitch', 'nav_bearing',
                                                'target_bearing', 'wp_dist', 'alt_error', 'aspd_error', 'xtrack_error']
@@ -216,7 +232,7 @@ class Vehicle(threading.Thread):
                 self.header = self.header + self.NAV_CONTROLLER_OUTPUT_HEADER
             
             # Set SYS_STATUS
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,2)
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,1)
             print("SYS_STATUS Stream Started")
             self.SYS_STATUS_HEADER=['mavpackettype', 'onboard_control_sensors_present', 'onboard_control_sensors_enabled',
                                 'onboard_control_sensors_health', 'load', 'voltage_battery', 'current_battery',
@@ -226,7 +242,7 @@ class Vehicle(threading.Thread):
             self.header = self.header + self.SYS_STATUS_HEADER
             
             # Set GLOBAL_POSITION_INT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,2)
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,1)
             print("GLOBAL_POSITION_INT Stream Started")
             self.GLOBAL_POSITION_INT_HEADER=['mavpackettype', 'time_boot_ms', 'lat', 'lon', 'alt',
                                          'relative_alt', 'vx', 'vy', 'vz', 'hdg']
@@ -234,7 +250,7 @@ class Vehicle(threading.Thread):
             self.header = self.header + self.GLOBAL_POSITION_INT_HEADER
             
             # Set RAW_IMU
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_RAW_IMU,2)
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_RAW_IMU,1)
             print("RAW_IMU Stream Started")
             self.RAW_IMU_HEADER=['mavpackettype', 'time_usec', 'xacc', 'yacc', 'zacc', 'xgyro', 'ygyro',
                              'zgyro', 'xmag', 'ymag', 'zmag']
@@ -242,7 +258,7 @@ class Vehicle(threading.Thread):
             self.header = self.header + self.RAW_IMU_HEADER
             
             # Set BATTERY_STATUS
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_BATTERY_STATUS,2)
+            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_BATTERY_STATUS,1)
             self.BATTERY_STATUS_HEADER=['mavpackettype', 'id', 'battery_function', 'type', 'temperature',
                                     'voltages', 'current_battery', 'current_consumed', 'energy_consumed',
                                     'battery_remaining']
@@ -274,10 +290,12 @@ class Vehicle(threading.Thread):
             self.msg=self.nav.recv_match().to_dict()
             #print(self.msg)
     def createData(self):
-        self.dataFull = list(self.VFR_HUD.values())+list(self.POSITION_TARGET_GLOBAL_INT.values())+list(self.AHRS.values())+list(self.GPS_RAW_INT.values()) + list(self.RC_CHANNELS.values()) + list(self.MISSION_CURRENT.values()) 
-        if self.frame == 'plane':
-            self.dataFull = self.dataFull + list(self.NAV_CONTROLLER_OUTPUT.values())
-        self.dataFull = self.dataFull + list(self.SYS_STATUS.values()) + list(self.GLOBAL_POSITION_INT.values()) + list(self.RAW_IMU.values())+list(self.BATTERY_STATUS.values())+list(self.HEARTBEAT.values())
+        if self.heart:
+            if (self.HEARTBEAT['base_mode'] >128 and self.HEARTBEAT['type'] == 10) or (self.HEARTBEAT['type'] != 10):
+                self.dataFull = list(self.VFR_HUD.values())+list(self.POSITION_TARGET_GLOBAL_INT.values())+list(self.AHRS.values())+list(self.GPS_RAW_INT.values()) + list(self.RC_CHANNELS.values()) + list(self.MISSION_CURRENT.values()) 
+                if self.frame == 'plane':
+                    self.dataFull = self.dataFull + list(self.NAV_CONTROLLER_OUTPUT.values())
+                self.dataFull = self.dataFull + list(self.SYS_STATUS.values()) + list(self.GLOBAL_POSITION_INT.values()) + list(self.RAW_IMU.values())+list(self.BATTERY_STATUS.values())+list(self.HEARTBEAT.values())
         #print(self.dataFull)
     def parseMessage(self):
         if self._running:
@@ -315,15 +333,16 @@ class Vehicle(threading.Thread):
                 #print(self.msg)
                 self.BATTERY_STATUS=self.msg
             elif self.msg['mavpackettype']=='HEARTBEAT':
-                #print(self.msg)
+                print(self.msg)
                 self.HEARTBEAT=self.msg
+                self.heart=True
             else:
                 pass
     
     def run(self):
         if self._running:
             while self._running:
-                time.sleep(.05)
+                time.sleep(.01)
                 #print(navio.nav.messages)
                 self.getMessage()
                 self.parseMessage()
@@ -336,4 +355,6 @@ record=dataRecordBus()
 sensor.start()
 navio.start()
 record.start()
+restart=0
+
 
