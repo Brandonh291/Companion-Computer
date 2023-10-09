@@ -136,7 +136,7 @@ class Vehicle(threading.Thread):
             print("Waiting for Heartbeat") # We need to receive a correct signal from the controller to indicate we are atleast receiving data
         
             self.heartVal = self.nav.wait_heartbeat(timeout=30) # Waiting 30 seconds for a heart message
-        
+            self.frame=frame
             if self.heartVal == None:
                 print("Failure")
                 self._running = False # If we receive no message, then set vehicle to not running so we dont mess up asking for additonal commands
@@ -146,109 +146,16 @@ class Vehicle(threading.Thread):
                 print("Heartbeat from system: ",self.nav.
                       target_system," and component: ", self.nav.target_component)
                 print(self.heartVal)
-                self.initializeFields(frame)
+                self.initializeFields()
         except:
             self._running = False
             print("Mavlink Failed")
-    def initializeFields(self,frame):
+    def initializeFields(self):
         #self.nav.mav.request_data_stream_send(1,0,mavutil.mavlink.MAV_DATA_STREAM_ALL,6,1)
         print("All Stream Halted")
         self.header=[]
         # Do Plane Initialization
-        if frame == 'plane':
-            # Set VFR HUD
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,2) # VFR_HUD, 2Hz
-            print("VFR HUD Stream Started")
-            self.VFR_HUD_HEADER=['mavpackettype', 'airspeed', 'groundspeed', 'heading', 'throttle', 'alt', 'climb']
-            #self.VFR_HUD=['','','','','','','']
-            self.header = self.header + self.VFR_HUD_HEADER
-            
-            #Set POSITION_TARGET_GLOBAL_INT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_POSITION_TARGET_GLOBAL_INT,2) #GPS_RAW_INT, 2 Hz
-            print("POSITION_TARGET_GLOBAL_INT Stream Started")
-            self.POSITION_TARGET_GLOBAL_INT_HEADER=['mavpackettype', 'time_boot_ms', 'coordinate_frame', 'type_mask',
-                                                'lat_int', 'lon_int', 'alt', 'vx', 'vy', 'vz', 'afx', 'afy',
-                                                'afz', 'yaw', 'yaw_rate']
-            #self.POSITION_TARGET_GLOBAL_INT=['','','','','','','','','','','','','','','']
-            self.header = self.header + self.POSITION_TARGET_GLOBAL_INT_HEADER
-            
-            # Set AHRS
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_AHRS,2)
-            print("AHRS Stream Started")
-            self.AHRS_HEADER=['mavpackettype', 'omegaIx', 'omegaIy', 'omegaIz', 'accel_weight',
-                          'renorm_val', 'error_rp', 'error_yaw']
-            #self.AHRS=['','','','','','','','']
-            self.header = self.header + self.AHRS_HEADER
-            
-            # Set GPS_RAW_INT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_GPS_RAW_INT,2)
-            print("GPS_RAW_INT Stream Started")
-            self.GPS_RAW_INT_HEADER=['mavpackettype', 'time_usec', 'fix_type', 'lat', 'lon', 'alt',
-                                 'eph', 'epv', 'vel', 'cog', 'satellites_visible']
-            #self.GPS_RAW_INT=['','','','','','','','','','','']
-            self.header = self.header + self.GPS_RAW_INT_HEADER
-            
-            # Set RC_CHANNELS
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_RC_CHANNELS,2)
-            print("RC_CHANNELS Stream Started")
-            self.RC_CHANNELS_HEADER=['mavpackettype', 'time_boot_ms', 'chancount', 'chan1_raw',
-                                 'chan2_raw', 'chan3_raw', 'chan4_raw', 'chan5_raw', 'chan6_raw',
-                                 'chan7_raw', 'chan8_raw', 'chan9_raw', 'chan10_raw', 'chan11_raw',
-                                 'chan12_raw', 'chan13_raw', 'chan14_raw', 'chan15_raw', 'chan16_raw',
-                                 'chan17_raw', 'chan18_raw', 'rssi']
-            #self.RC_CHANNELS=['','','','','','','','','','','','','','','','','','','','','','']
-            self.header = self.header + self.RC_CHANNELS_HEADER
-            
-            # Set MISSION_CURRENT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_MISSION_CURRENT,2)
-            print("MISSION_CURRENT Stream Started")
-            self.MISSION_CURRENT_HEADER=['mavpackettype', 'seq']
-            #self.MISSION_CURRENT=['','']
-            self.header = self.header + self.MISSION_CURRENT_HEADER
-            
-            # Set NAV_CONTROLLER_OUTPUT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT,2)
-            print("NAV_CONTROLLER_OUTPUT Stream Started")
-            self.NAV_CONTROLLER_OUTPUT_HEADER=['mavpackettype', 'nav_roll', 'nav_pitch', 'nav_bearing',
-                                           'target_bearing', 'wp_dist', 'alt_error', 'aspd_error', 'xtrack_error']
-            #self.NAV_CONTROLLER_OUTPUT=['','','','','','','','','']
-            self.header = self.header + self.NAV_CONTROLLER_OUTPUT_HEADER
-            
-            # Set SYS_STATUS
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,2)
-            print("SYS_STATUS Stream Started")
-            self.SYS_STATUS_HEADER=['mavpackettype', 'onboard_control_sensors_present', 'onboard_control_sensors_enabled',
-                                'onboard_control_sensors_health', 'load', 'voltage_battery', 'current_battery',
-                                'battery_remaining', 'drop_rate_comm', 'errors_comm', 'errors_count1', 'errors_count2',
-                                'errors_count3', 'errors_count4']
-            #self.SYS_STATUS=['','','','','','','','','','','','','','']
-            self.header = self.header + self.SYS_STATUS_HEADER
-            
-            # Set GLOBAL_POSITION_INT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_GLOBAL_POSITION_INT,2)
-            print("GLOBAL_POSITION_INT Stream Started")
-            self.GLOBAL_POSITION_INT_HEADER=['mavpackettype', 'time_boot_ms', 'lat', 'lon', 'alt',
-                                         'relative_alt', 'vx', 'vy', 'vz', 'hdg']
-            #self.GLOBAL_POSITION_INT=['','','','','','','','','','']
-            self.header = self.header + self.GLOBAL_POSITION_INT_HEADER
-            
-            # Set RAW_IMU
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_RAW_IMU,2)
-            print("RAW_IMU Stream Started")
-            self.RAW_IMU_HEADER=['mavpackettype', 'time_usec', 'xacc', 'yacc', 'zacc', 'xgyro', 'ygyro',
-                             'zgyro', 'xmag', 'ymag', 'zmag']
-            #self.RAW_IMU=['','','','','','','','','','','']
-            self.header = self.header + self.RAW_IMU_HEADER
-            
-            # Set BATTERY_STATUS
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_BATTERY_STATUS,2)
-            self.BATTERY_STATUS_HEADER=['mavpackettype', 'id', 'battery_function', 'type', 'temperature',
-                                    'voltages', 'current_battery', 'current_consumed', 'energy_consumed',
-                                    'battery_remaining']
-            #self.BATTERY_STATUS=['','','','','','','','','','']
-            print("BATTERY_STATUS Stream Started")
-            self.header = self.header + self.BATTERY_STATUS_HEADER
-        elif frame=='rover':
+        if self.frame == 'plane' or self.frame == 'rover':
             # Set VFR HUD
             self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_VFR_HUD,2) # VFR_HUD, 2Hz
             print("VFR HUD Stream Started")
@@ -299,13 +206,14 @@ class Vehicle(threading.Thread):
             self.MISSION_CURRENT=self.createEmpty(self.MISSION_CURRENT_HEADER)
             self.header = self.header + self.MISSION_CURRENT_HEADER
             
-            # Set NAV_CONTROLLER_OUTPUT
-            self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT,2)
-            print("NAV_CONTROLLER_OUTPUT Stream Started")
-            self.NAV_CONTROLLER_OUTPUT_HEADER=['mavpackettype', 'nav_roll', 'nav_pitch', 'nav_bearing',
-                                           'target_bearing', 'wp_dist', 'alt_error', 'aspd_error', 'xtrack_error']
-            self.NAV_CONTROLLER_OUTPUT=self.createEmpty(self.NAV_CONTROLLER_OUTPUT_HEADER)
-            self.header = self.header + self.NAV_CONTROLLER_OUTPUT_HEADER
+            if self.frame == 'plane':
+                # Set NAV_CONTROLLER_OUTPUT
+                self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_NAV_CONTROLLER_OUTPUT,2)
+                print("NAV_CONTROLLER_OUTPUT Stream Started")
+                self.NAV_CONTROLLER_OUTPUT_HEADER=['mavpackettype', 'nav_roll', 'nav_pitch', 'nav_bearing',
+                                               'target_bearing', 'wp_dist', 'alt_error', 'aspd_error', 'xtrack_error']
+                self.NAV_CONTROLLER_OUTPUT=self.createEmpty(self.NAV_CONTROLLER_OUTPUT_HEADER)
+                self.header = self.header + self.NAV_CONTROLLER_OUTPUT_HEADER
             
             # Set SYS_STATUS
             self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_SYS_STATUS,2)
@@ -347,8 +255,6 @@ class Vehicle(threading.Thread):
             print("Heartbeat Stream Started")
             self.header = self.header + self.HEARTBEAT_HEADER
             
-            #self.set_Message_Interval(mavutil.mavlink.MAVLINK_MSG_ID_CURRENT_WAYPOINT,2)
-            
             
     def createEmpty(self, keys):
         return {keys[x]:'' for x in range(len(keys))}
@@ -368,7 +274,10 @@ class Vehicle(threading.Thread):
             self.msg=self.nav.recv_match().to_dict()
             #print(self.msg)
     def createData(self):
-        self.dataFull = list(self.VFR_HUD.values())+list(self.POSITION_TARGET_GLOBAL_INT.values())+list(self.AHRS.values())+list(self.GPS_RAW_INT.values()) + list(self.RC_CHANNELS.values()) + list(self.MISSION_CURRENT.values()) + list(self.NAV_CONTROLLER_OUTPUT.values()) + list(self.SYS_STATUS.values()) + list(self.GLOBAL_POSITION_INT.values()) + list(self.RAW_IMU.values())+list(self.BATTERY_STATUS.values())+list(self.HEARTBEAT.values())
+        self.dataFull = list(self.VFR_HUD.values())+list(self.POSITION_TARGET_GLOBAL_INT.values())+list(self.AHRS.values())+list(self.GPS_RAW_INT.values()) + list(self.RC_CHANNELS.values()) + list(self.MISSION_CURRENT.values()) 
+        if self.frame == 'plane':
+            self.dataFull = self.dataFull + list(self.NAV_CONTROLLER_OUTPUT.values())
+        self.dataFull = self.dataFull + list(self.SYS_STATUS.values()) + list(self.GLOBAL_POSITION_INT.values()) + list(self.RAW_IMU.values())+list(self.BATTERY_STATUS.values())+list(self.HEARTBEAT.values())
         #print(self.dataFull)
     def parseMessage(self):
         if self._running:
