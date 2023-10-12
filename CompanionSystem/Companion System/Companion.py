@@ -121,21 +121,29 @@ class dataRecordBus (threading.Thread):
         self.combineHeader(sensor.header,navio.header)
         self.log_data_file(self.Header)                           # Log header data into log file
         while self._running:
-            if navio.HEARTBEAT['type']==10 and navio.heart == True and navio.HEARTBEAT['base_mode']<128 and self.makeNew==False:
-                self.newCount = self.newCount+1
-                if self.newCount > 5:
-                    self.makeNew=True
-                    self.newCount=0
-                    print("NEW LOG")
-            if self.makeNew and navio.HEARTBEAT['type'] == 10 and navio.heart== True and navio.HEARTBEAT['base_mode']>128:
-                self.makeFile()
-                print(sensor.header)
-                print(navio.header)
-                self.combineHeader(sensor.header,navio.header)
-                self.log_data_file(self.Header)                           # Log header data into log file
-                print("New Log Made")
-            self.log_data_file(sensor.dataFull+navio.dataFull)                     # Log current sensor data
-            time.sleep(.05)                                         # Sleep 50ms
+            if navio._running:
+                if not navio._armed and self.makeNew==False:
+                    self.newCount = self.newCount+1
+                    if self.newCount > 5:
+                        self.makeNew=True
+                        self.newCount=0
+                        print("NEW LOG")
+                if self.makeNew and navio._armed:
+                    self.makeFile()
+                    print(sensor.header)
+                    print(navio.header)
+                    self.combineHeader(sensor.header,navio.header)
+                    self.log_data_file(self.Header)                           # Log header data into log file
+                    print("New Log Made")       
+            #print(navio._armed)
+            if ((navio._running == False) or navio._armed):
+                #print(sensor.dataFull+navio.dataFull)
+                print(sensor.dataFull)
+                self.log_data_file(sensor.dataFull+navio.dataFull)                     # Log current sensor data
+            else:
+                print("System Disarmed and Navio Connected, No Logging")
+                time.sleep(0.5)
+            time.sleep(.2)                                         # Sleep 200ms
     # Save data in log text file        
     def log_data_file(self, data):
         file = open(r"/home/pi/Documents/logs/" + self.log_file, "a") # open log fil
@@ -143,20 +151,24 @@ class dataRecordBus (threading.Thread):
             if L == len(data) - 1:
                 file.write(str(data[L]) + "\r\n")
             else:
-                file.write(str(data[L]) + ",")
+                file.write(str(data[L]) + ";")
         file.close() # Close file
         
 
 class Vehicle(threading.Thread):
     def __init__(self,frame):
         try:
+            self.exit=False
+            self._armed=False
+            self.header=[]
+            self.dataFull=[]
+            self.frame=frame
+            self.heart=False 
             threading.Thread.__init__(self)
             self.nav = mavutil.mavlink_connection("/dev/ttyS0", baud=115200)
             print("Waiting for Heartbeat") # We need to receive a correct signal from the controller to indicate we are atleast receiving data
         
             self.heartVal = self.nav.wait_heartbeat(timeout=30) # Waiting 30 seconds for a heart message
-            self.frame=frame
-            self.heart=False
             if self.heartVal == None:
                 print("Failure")
                 self._running = False # If we receive no message, then set vehicle to not running so we dont mess up asking for additonal commands
@@ -170,10 +182,28 @@ class Vehicle(threading.Thread):
         except:
             self._running = False
             print("Mavlink Failed")
+    def attemptConnection(self):
+        try:
+            self.nav = mavutil.mavlink_connection("/dev/ttyS0", baud=115200)
+            print("Waiting for Heartbeat") # We need to receive a correct signal from the controller to indicate we are atleast receiving data
+        
+            self.heartVal = self.nav.wait_heartbeat(timeout=30) # Waiting 30 seconds for a heart message
+            if self.heartVal == None:
+                print("Failure to find Heartbeat")
+                self._running = False # If we receive no message, then set vehicle to not running so we dont mess up asking for additonal commands
+            
+            else:
+                self._running = True
+                print("Heartbeat from system: ",self.nav.
+                      target_system," and component: ", self.nav.target_component)
+                print(self.heartVal)
+                self.initializeFields()
+        except:
+            self._running = False
+            print("Mavlink Error in Attempting Connection")
     def initializeFields(self):
         #self.nav.mav.request_data_stream_send(1,0,mavutil.mavlink.MAV_DATA_STREAM_ALL,6,1)
         print("All Stream Halted")
-        self.header=[]
         # Do Plane Initialization
         if self.frame == 'plane' or self.frame == 'rover':
             # Set VFR HUD
@@ -206,6 +236,7 @@ class Vehicle(threading.Thread):
             print("GPS_RAW_INT Stream Started")
             self.GPS_RAW_INT_HEADER=['mavpackettype', 'time_usec', 'fix_type', 'lat', 'lon', 'alt',
                                  'eph', 'epv', 'vel', 'cog', 'satellites_visible']
+            # This has done two different types of sets now and im not sure which is which.
             self.GPS_RAW_INT=self.createEmpty(self.GPS_RAW_INT_HEADER)
             self.header = self.header + self.GPS_RAW_INT_HEADER
             
@@ -296,11 +327,11 @@ class Vehicle(threading.Thread):
             #print(self.msg)
     def createData(self):
         if self.heart:
-            if (self.HEARTBEAT['base_mode'] >128 and self.HEARTBEAT['type'] == 10) or (self.HEARTBEAT['type'] != 10):
+            if self._armed:
                 self.dataFull = list(self.VFR_HUD.values()) 
-                if self.frame == 'plane':
-                    self.dataFull = self.dataFull + list(self.POSITION_TARGET_GLOBAL_INT.values())
-                self.dataFull = self.dataFull +list(self.AHRS.values())+list(self.GPS_RAW_INT.values()) + list(self.RC_CHANNELS.values()) + list(self.MISSION_CURRENT.values())
+                if self.frame=='plane':
+                    self.dataFull= self.dataFull + list(self.POSITION_TARGET_GLOBAL_INT.values())
+                self.dataFull=self.dataFull +list(self.AHRS.values())+list(self.GPS_RAW_INT.values()) + list(self.RC_CHANNELS.values()) + list(self.MISSION_CURRENT.values())
                 if self.frame == 'plane':
                     self.dataFull = self.dataFull + list(self.NAV_CONTROLLER_OUTPUT.values())
                 self.dataFull = self.dataFull + list(self.SYS_STATUS.values()) + list(self.GLOBAL_POSITION_INT.values()) + list(self.RAW_IMU.values())+list(self.BATTERY_STATUS.values())+list(self.HEARTBEAT.values())
@@ -341,20 +372,47 @@ class Vehicle(threading.Thread):
                 #print(self.msg)
                 self.BATTERY_STATUS=self.msg
             elif self.msg['mavpackettype']=='HEARTBEAT':
-                print(self.msg)
+                #print(self.msg)
                 self.HEARTBEAT=self.msg
                 self.heart=True
+                if self.HEARTBEAT['type'] == 10 and self.heart== True and self.HEARTBEAT['base_mode']>128:
+                    self._armed=True
+                    #print("Armed")
+                elif self.HEARTBEAT['type'] == 10 and self.heart== True and self.HEARTBEAT['base_mode']<128:
+                    self._armed=False
+                    #print("Disarmed")
+                else:
+                    pass
+                #print(self._armed)
             else:
                 pass
     
     def run(self):
-        if self._running:
-            while self._running:
-                time.sleep(.01)
-                #print(navio.nav.messages)
-                self.getMessage()
-                self.parseMessage()
-                self.createData()
+        while not self.exit:
+            if self._running:
+                nextTime=time.time()
+                while self._running:
+                    curTime=time.time()
+                    if curTime-nextTime > 5:
+                        if self._armed:
+                            self.nav.mav.statustext_send(mavutil.mavlink.MAV_SEVERITY_NOTICE,"System Collecting Data".encode())
+                            #print("Hellooo")
+                        else:
+                            self.nav.mav.statustext_send(mavutil.mavlink.MAV_SEVERITY_NOTICE,"System Not Collecting Data".encode())
+
+                        nextTime=time.time()
+                    #time.sleep(.01)
+                    #print(navio.nav.messages)
+                    try:
+                        self.getMessage()
+                    except:
+                        pass
+                    self.parseMessage()
+                    self.createData()
+            if not self._running:
+                time.sleep(60)
+                self.attemptConnection()
+                
                 
 
 sensor=sensorBus()
