@@ -2,23 +2,27 @@
 # Sparkfun Breakout Board
 from smbus2 import SMBus                                        # I2C Package
 from smbus2 import i2c_msg                                      # I2C Package
-bus=SMBus(4)
+
 class SHTC3:
-    def __init__(self):
+    def __init__(self,busID):
         # Attempt to initialize device
         try:
+            self.busID = busID
+            self.bus=SMBus(self.busID)
             self.addr = 0x70                                      # Device Address
             self.wakeupMSB = 0x35                                 # MSB of Wakeup Command
             self.wakeupLSB = 0x17                                 # LSB of Wakeup Command
             self.sleepMSB = 0xb0                                  # MSB of Sleep Command
             self.sleepLSB = 0x98                                  # LSB of Sleep Command
-
+            self.temp = 0
+            self.humidity=0
+            
             msg=i2c_msg.write(0x70,[0x35,0x17])                 # Write Wakeup Command
-            bus.i2c_rdwr(msg)                                   # Send Wakeup Command
+            self.bus.i2c_rdwr(msg)                                   # Send Wakeup Command
             msg=i2c_msg.write(0x70,[0b01011100,0b00100100])     # Write Measure Command
-            bus.i2c_rdwr(msg)                                   # Send Measure Command
+            self.bus.i2c_rdwr(msg)                                   # Send Measure Command
             msg=i2c_msg.read(0x70,6)                            # Write Read Command
-            bus.i2c_rdwr(msg)                                   # Send Read Command
+            self.bus.i2c_rdwr(msg)                                   # Send Read Command
             
             self._running = True                                # Initialization Succeeded
                                                                 # System will take data from sensor.
@@ -34,11 +38,11 @@ class SHTC3:
     def measure(self):
         if self._running:
             msg = i2c_msg.write(0x70,[0x35,0x17])                 # Write Wakeup Command
-            bus.i2c_rdwr(msg)                                   # Send Wakeup Command
+            self.bus.i2c_rdwr(msg)                                   # Send Wakeup Command
             msg = i2c_msg.write(0x70,[0b01011100,0b00100100])     # Write Measure Command
-            bus.i2c_rdwr(msg)                                   # Send Measure Command
+            self.bus.i2c_rdwr(msg)                                   # Send Measure Command
             msg = i2c_msg.read(0x70,6)                            # Write Read Command
-            bus.i2c_rdwr(msg)                                   # Send Read Command
+            self.bus.i2c_rdwr(msg)                                   # Send Read Command
             
             data = list(msg)                                      # Load data from command into an array
 

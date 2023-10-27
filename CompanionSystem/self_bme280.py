@@ -10,6 +10,10 @@ class bme280_sensor:
         try:
             self.bme280_sensor = BME280(i2c_dev=bus, i2c_addr=0x77) # Initialize BME280 Library
             self.bme280_sensor.get_temperature()                    # Get Temperature to check if sensor is working
+            self.temperature = 0
+            self.pressure = 0
+            self.humidity = 0
+            self.altitude = 0
             self._running = True                                    # Initialization succeeded
                                                                     # System will take data from sensor
             print("BME280 Passed")                                  # Let user know the sensor passed initialization.
