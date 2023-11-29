@@ -48,24 +48,24 @@ class TMP117:
         - busID (int): The bus ID for communication with the sensor.
         """
         try:
-            self.busID=busID
-            self.bus=SMBus(busID)
-            self.address = address                                              # Device Address 
+            self.busID =     busID
+            self.bus =       SMBus(busID)
+            self.address =   address                                            # Device Address 
             
-            self.dataHere = False                                               # Initialize Flag for whether there is data to be read
-            self.temp_c = 0                                                     # Initialize data output......Removeable?
+            self.dataHere =  False                                              # Initialize Flag for whether there is data to be read
+            self.temp_c =    0                                                  # Initialize data output......Removeable?
             
             self.bus.read_byte_data(self.address, TEMP_RESULT)                  # Read the temperature register.
 
 
-            self.configure() # Configure Device
-            self._running = True                                                # Initialization succeeded
+            self.configure()
+            self._running =  True                                               # Initialization succeeded
                                                                                 # System will take data from this sensor.
                                                         
             print("TMP117 Pass")                                                # Let the user know the sensor passed initialization.
             
         except:
-            self._running = False                                               # Initialization failed, mark as non-functioning.
+            self._running =  False                                              # Initialization failed, mark as non-functioning.
                                                                                 # System will not take data from this sensor.
                                                         
             print("TMP117 Fail")                                                # Let the user know the sensor failed initialization.
@@ -125,7 +125,7 @@ class TMP117:
         Updates the dataHere attribute based on the configuration register.
         """
         val = self.bus.read_i2c_block_data(self.address,
-                                           TEMP_RESULT, 2)           # Read the Configuration Register.
+                                           TEMP_RESULT, 2)                      # Read the Configuration Register.
         
         if val[0] & 0b100000:                                                   # Check if Bit 13 of the configuration register is "1".
             self.dataHere = True                                                # If Bit 13 == 1, New data is available.   
@@ -144,7 +144,7 @@ class TMP117:
             self.dataReady()                                                    # Check if data is available to be read. 
             if self.dataHere:                                                   # If data is available, read from temperature register.
                 val = self.bus.read_i2c_block_data(self.address,
-                                                   TEMP_RESULT, 2)     # Read temperature data register and store the recieved 2 bytes.                    
+                                                   TEMP_RESULT, 2)              # Read temperature data register and store the recieved 2 bytes.                    
                 self.temp_c = (val[0] << 8) | (val[1] >> 0)                     # Combine MSB and LSB bytes of the data.
                 self.temp_c = self.twos_comp(self.temp_c, 16)                   # Calculate Twos complement of combined data.
 

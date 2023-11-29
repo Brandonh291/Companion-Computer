@@ -1,29 +1,29 @@
 # CCS811 Environmental Sensor
 # Sparkfun Breakout Board
-from smbus2 import SMBus                                        # I2C Package
-from smbus2 import i2c_msg                                      # I2C Package
+from smbus2 import SMBus                                                        # I2C Package
+from smbus2 import i2c_msg                                                      # I2C Package
 import time
 
 # Constants
-DEVICE_ADDRESS = 0x5B
-STATUS = 0x00
-MEAS_MODE = 0x01
-ALG_RESULT_DATA = 0x02
-RAW_DATA = 0x03
-ENV_DATA = 0x05
-THRESHOLDS = 0x10
-BASELINE = 0x11
-HW_ID = 0x20
-HW_VERSION = 0x21
-FW_BOOT_VERSION = 0x23
-FW_APP_VERSION = 0x24
-INTERNAL_STATE = 0xA0
-ERROR_ID = 0xE0
-APP_ERASE = 0xF1
-APP_DATA = 0xF2
-APP_VERIFY = 0xF3
-APP_START = 0xF4
-SW_RESET = 0xFF
+DEVICE_ADDRESS =    0x5B
+STATUS =            0x00
+MEAS_MODE =         0x01
+ALG_RESULT_DATA =   0x02
+RAW_DATA =          0x03
+ENV_DATA =          0x05
+THRESHOLDS =        0x10
+BASELINE =          0x11
+HW_ID =             0x20
+HW_VERSION =        0x21
+FW_BOOT_VERSION =   0x23
+FW_APP_VERSION =    0x24
+INTERNAL_STATE =    0xA0
+ERROR_ID =          0xE0
+APP_ERASE =         0xF1
+APP_DATA =          0xF2
+APP_VERIFY =        0xF3
+APP_START =         0xF4
+SW_RESET =          0xFF
 
 class CCS811:
     """
@@ -38,9 +38,11 @@ class CCS811:
     - address (int): Device address (default: 0x5B).
 
     - eco2 (int): CO2 concentration in parts per million (ppm).
-    - eTVOC (int): Total Volatile Organic Compounds concentration in parts per billion (ppb).
+    - eTVOC (int): Total Volatile Organic Compounds concentration in parts 
+        per billion (ppb).
     - dataReady (bool): Indicates whether data is ready for reading.
-    - _running (bool): Indicates whether the sensor is successfully initialized.
+    - _running (bool): Indicates whether the sensor is successfully 
+        initialized.
 
     Methods:
     - __init__(self, busID): Initialize the CCS811 sensor.
@@ -57,18 +59,20 @@ class CCS811:
         - address (int): The address for the sensor.
         """
         try:
-            self.busID = busID
-            self.bus = SMBus(self.busID)
-            self.address = address  # Device Address
+            self.busID =        busID
+            self.bus =          SMBus(self.busID)
+            self.address =      address
 
-            self.eco2 = 0  # CO2 in parts per million (ppm)
-            self.eTVOC = 0  # Total Volatile Organic Compounds in parts per billion (ppb)
-            self.dataReady = False
+            self.eco2 =         0 
+            self.eTVOC =        0  
+            self.dataReady =    False
+            
             self.configure()
-            self._running = True
+            
+            self._running =     True
             print("CCS811 Passed")
         except:
-            self._running = False
+            self._running =     False
             print("CCS811 Failed")
 
     def configure(self, drive_mode = 0b001):
@@ -125,5 +129,3 @@ class CCS811:
                     self.eTVOC = ((val[2] << 8) | (val[3]))
             except:
                 print("Error in Gas Read")
-c=CCS811()
-c.read_gas()
