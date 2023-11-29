@@ -288,6 +288,7 @@ class Vehicle(threading.Thread):
                       target_system," and component: ", self.nav.target_component)
                 print(self.heartVal)
                 self.initializeFields()
+            self.initializeFields()
         except:
             self._running = False
 
