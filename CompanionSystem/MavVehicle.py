@@ -2,10 +2,7 @@
 
 import threading                                                # Thread-Based Parallelism
 import time                                                     # Time access and conversion module
-from pymavlink import mavutil                                   # Communication for Ardupilot Mavlink Protocol
-
-bus=3
-startTime=time.time()              
+from pymavlink import mavutil                                   # Communication for Ardupilot Mavlink Protocol        
 
 class Vehicle(threading.Thread):
     """
