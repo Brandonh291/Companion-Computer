@@ -1,5 +1,7 @@
 # CCS811 Environmental Sensor
 # Sparkfun Breakout Board
+# Datasheet: https://cdn-learn.adafruit.com/assets/assets/000/044/636/original/CCS811_DS000459_2-00-1098798.pdf?1501602769
+# Github: https://github.com/Brandonh291/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/blob/main/CompanionSystem/Sensors/CCS811.py
 from smbus2 import SMBus                                                        # I2C Package
 from smbus2 import i2c_msg                                                      # I2C Package
 import time

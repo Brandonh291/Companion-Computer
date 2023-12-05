@@ -1,5 +1,7 @@
 # SCD40 CO2, Temp, Humidity
 # Adafruit Breakout Board
+# Datasheet: https://sensirion.com/media/documents/48C4B7FB/64C134E7/Sensirion_SCD4x_Datasheet.pdf
+# Github: https://github.com/Brandonh291/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/blob/main/CompanionSystem/Sensors/SCD4X.py
 from smbus2 import SMBus                                                        # I2C Package
 from smbus2 import i2c_msg                                                      # I2C Package
 import time

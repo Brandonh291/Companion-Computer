@@ -1,5 +1,7 @@
 # MPR Series - MPRLS0025PA00001A Micro pressure Sensor
 # Sparkfun Breakout Board
+# Datasheet: https://www.mouser.com/datasheet/2/187/HWSC_S_A0016036563_1-3073392.pdf
+# Github: https://github.com/Brandonh291/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/blob/main/CompanionSystem/Sensors/Micropressure.py
 from smbus2 import SMBus                                                        # I2C Package
 from smbus2 import i2c_msg                                                      # I2C Package
 import time

@@ -1,5 +1,7 @@
 # SHTC3 Sensor
 # Sparkfun Breakout Board
+# Datasheet: https://www.sensirion.com/media/documents/643F9C8E/63A5A436/Datasheet_SHTC3.pdf
+# Github: https://github.com/Brandonh291/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/blob/main/CompanionSystem/Sensors/SHTC3.py
 from smbus2 import SMBus                                                        # I2C Package
 from smbus2 import i2c_msg                                                      # I2C Package
 

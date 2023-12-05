@@ -1,5 +1,7 @@
 # BME280 Environmental Sensor
 # Sparkfun Breakout Board
+# Datasheet:https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bme280-ds002.pdf
+# Github: https://github.com/Brandonh291/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/blob/main/CompanionSystem/Sensors/self_bme280.py
 from bme280 import BME280                                       # BME280 environmental sensor
 from smbus2 import SMBus                                        # I2C Package
 from smbus2 import i2c_msg                                      # I2C Package

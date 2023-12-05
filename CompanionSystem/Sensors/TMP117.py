@@ -1,5 +1,7 @@
 # TMP117 Temperature Sensor
 # Sparkfun Breakout Board
+# Datasheet: https://www.ti.com/lit/ds/symlink/tmp117.pdf?ts=1701791984778&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FTMP117
+# Github Link: https://github.com/Brandonh291/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/blob/main/CompanionSystem/Sensors/TMP117.py
 from smbus2 import SMBus                                                        # I2C Package
 from smbus2 import i2c_msg                                                      # I2C Package    
 
