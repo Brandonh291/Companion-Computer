@@ -1,4 +1,5 @@
 # Import Libraries / Modules
+# Github: https://github.com/Brandonh291/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/blob/main/CompanionSystem/MavVehicle.py
 
 import threading                                                # Thread-Based Parallelism
 import time                                                     # Time access and conversion module

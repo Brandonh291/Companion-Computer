@@ -1,4 +1,6 @@
 # Import Libraries / Modules
+# Github: https://github.com/Brandonh291/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/blob/main/CompanionSystem/Companion.py
+
 import os                                                       # Operating System Interfaces
 from picamera import PiCamera                                   # Raspberry Pi Camera
 from picamera import Color                                      # Raspberry Pi Camera
