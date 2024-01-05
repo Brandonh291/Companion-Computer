@@ -2,18 +2,18 @@
 # Github: https://github.com/Brandonh291/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/blob/main/CompanionSystem/Companion.py
 
 import os                                                       # Operating System Interfaces
-from picamera import PiCamera                                   # Raspberry Pi Camera
-from picamera import Color                                      # Raspberry Pi Camera
+#from picamera import PiCamera                                   # Raspberry Pi Camera
+#from picamera import Color                                      # Raspberry Pi Camera
 import threading                                                # Thread-Based Parallelism
 import VL53L1X                                                  # Time-of-Flight sensor
 import time                                                     # Time access and conversion module
 from datetime import datetime                                   # Date and time module
-import random
-import TMP117
-import SHTC3
-import CCS811
-import self_bme280
-import Micropressure
+from import random
+from Sensors import TMP117
+from Sensors import SHTC3
+from Sensors import CCS811
+from Sensors import self_bme280
+from Sensors import Micropressure
 import MavVehicle as Vehicle
 bus=3
 startTime=time.time()                                           # Use to mark a starting time for code, used for timing and data recording.
@@ -174,9 +174,9 @@ class DataRecordBus(threading.Thread):
         self.name_file = datetime.now().strftime('%Y%m%d_%H%M%S')  # Create file name
         random.seed()
         self.name_file = self.name_file + "_" + str(random.randrange(0, 10001, 2))
-        os.mkdir("/home/pi/Documents/logs/" + self.name_file)  # Create log directory
+        os.mkdir("/home/pi/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/Logs" + self.name_file)  # Create log directory
         self.log_file = self.name_file + "/" + self.name_file + ".txt"  # Create log file
-        self.video_file = "/home/pi/Documents/logs/" + self.name_file + "/" + self.name_file + ".h264"  # Create video file
+        self.video_file = "/home/pi/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/Logs" + self.name_file + "/" + self.name_file + ".h264"  # Create video file
         self.makeNew = False
 
     def combineHeader(self, header1, header2):
@@ -228,7 +228,7 @@ class DataRecordBus(threading.Thread):
         Args:
         - data (list): Data to be logged.
         """
-        file = open(r"/home/pi/Documents/logs/" + self.log_file, "a")  # open log file
+        file = open(r"/home/pi/Masters-Project-for-Raspberry-Pi-Based-Companion-Computer/Logs" + self.log_file, "a")  # open log file
         for L in range(len(data)):  # Append data
             if L == len(data) - 1:
                 file.write(str(data[L]) + "\r\n")
